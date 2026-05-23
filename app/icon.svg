@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Porra Mundial">
+  <defs>
+    <clipPath id="ball-clip">
+      <circle cx="50" cy="50" r="34"/>
+    </clipPath>
+  </defs>
+  <!-- Green background -->
+  <rect width="100" height="100" rx="16" fill="#059669"/>
+  <!-- White ball base -->
+  <circle cx="50" cy="50" r="34" fill="white"/>
+  <!-- Soccer ball patches, clipped to circle -->
+  <g clip-path="url(#ball-clip)" fill="#1a1a1a">
+    <!-- Center pentagon -->
+    <polygon points="50,28 62,37 57,50 43,50 38,37"/>
+    <!-- Top-left pentagon -->
+    <polygon points="38,37 27,30 24,18 36,14 50,28"/>
+    <!-- Top-right pentagon -->
+    <polygon points="62,37 73,30 76,18 64,14 50,28"/>
+    <!-- Right pentagon -->
+    <polygon points="62,37 76,18 84,29 80,43 72,52"/>
+    <!-- Left pentagon -->
+    <polygon points="38,37 24,18 16,29 20,43 28,52"/>
+    <!-- Bottom pentagon -->
+    <polygon points="57,50 72,52 67,66 50,71 33,66 28,52 43,50"/>
+  </g>
+  <!-- Ball border -->
+  <circle cx="50" cy="50" r="34" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+</svg>

@@ -1,0 +1,194 @@
+{
+  "MEXICO": {
+    "formation": "4-3-3",
+    "players": [
+      "Rangel",
+      "Jorge Sánchez",
+      "Montes",
+      "Johan Vásquez",
+      "Gallardo",
+      "Erik Lira",
+      "Vargas",
+      "Fidalgo",
+      "Alvarado",
+      "Raúl Jiménez",
+      "Alexis Vega"
+    ]
+  },
+  "SUDAFRICA": {
+    "formation": "4-2-3-1",
+    "players": [
+      "Ronwen Williams",
+      "Mudau",
+      "Mbokazi",
+      "Okon",
+      "Modiba",
+      "Sithole",
+      "Mokoena",
+      "Hlongwane",
+      "Mofokeng",
+      "Appollis",
+      "Lyle Foster"
+    ]
+  },
+  "COREA_DEL_SUR": {
+    "formation": "3-4-3",
+    "players": [
+      "Kim Seung-gyu",
+      "Cho Yu-Min",
+      "Kim Min-Jae",
+      "Lee Hanbeom",
+      "Seol Young-Woo",
+      "Hwang In-beom",
+      "Kim Jin-Gyu",
+      "Tae-Seok Lee",
+      "Kang-In Lee",
+      "Hwang Hee-Chan",
+      "Son Heung-Min"
+    ]
+  },
+  "REPUBLICA_CHECA": {
+    "formation": "3-4-2-1",
+    "players": [
+      "Kovar",
+      "Hranac",
+      "Chaloupek",
+      "Krejcí",
+      "Coufal",
+      "Darida",
+      "Soucek",
+      "Jurasek",
+      "Lukas Provod",
+      "Sulc",
+      "Schick"
+    ]
+  },
+  "CANADA": {
+    "formation": "4-4-2",
+    "players": [
+      "St. Clair",
+      "Johnston",
+      "Bombito",
+      "Cornelius",
+      "Davies",
+      "Buchanan",
+      "Eustaquio",
+      "Ismael Koné",
+      "Ali Ahmed",
+      "Jonathan David",
+      "Larin"
+    ]
+  },
+  "BOSNIA_Y_HERZEGOVINA": {
+    "formation": "4-4-2",
+    "players": [
+      "Vasilj",
+      "Dedic",
+      "Muharemovic",
+      "Katic",
+      "Kolasinac",
+      "Bajraktarevic",
+      "Tahirovic",
+      "Sunjic",
+      "Memic",
+      "Demirovic",
+      "Dzeko"
+    ]
+  },
+  "ESTADOS_UNIDOS": {
+    "formation": "3-4-2-1",
+    "players": [
+      "Freese",
+      "Miles Robinson",
+      "Ream",
+      "Richards",
+      "Weah",
+      "Roldán",
+      "McKennie",
+      "Antonee Robinson",
+      "Tillman",
+      "Pulisic",
+      "Balogun"
+    ]
+  },
+  "PARAGUAY": {
+    "formation": "4-4-2",
+    "players": [
+      "Orlando Gill",
+      "Juan José Cáceres",
+      "Gustavo Gómez",
+      "Alderete",
+      "Júnior Alonso",
+      "Ramón Sosa",
+      "Diego Gómez",
+      "Cubas",
+      "Almirón",
+      "Julio Enciso",
+      "Sanabria"
+    ]
+  },
+  "CATAR": {
+    "formation": "4-3-3",
+    "players": [
+      "Meshaal Barsham",
+      "Al Alawi",
+      "Lucas Mendes",
+      "Boualem Khoukhi",
+      "Pedro Miguel",
+      "Karim Boudiaf",
+      "Assim Madibo",
+      "Edmílson Junior",
+      "Akram Afif",
+      "Almoez Ali",
+      "Mohammad Al Mannai"
+    ]
+  },
+  "SUIZA": {
+    "formation": "4-2-3-1",
+    "players": [
+      "Kobel",
+      "Widmer",
+      "Akanji",
+      "Schär",
+      "Ricardo Rodríguez",
+      "Freuler",
+      "Xhaka",
+      "Vargas",
+      "Rieder",
+      "Ndoye",
+      "Embolo"
+    ]
+  },
+  "BRASIL": {
+    "formation": "4-2-3-1",
+    "players": [
+      "Alisson",
+      "Wesley",
+      "Marquinhos",
+      "Gabriel Magalhaes",
+      "Caio Henrique",
+      "Casemiro",
+      "Bruno Guimaraes",
+      "Raphinha",
+      "Cunha",
+      "Vinícius",
+      "Joao Pedro"
+    ]
+  },
+  "MARRUECOS": {
+    "formation": "4-3-3",
+    "players": [
+      "Bono",
+      "Achraf",
+      "Issa Diop",
+      "Aguerd",
+      "Mazraoui",
+      "Ounahi",
+      "El Aynaoui",
+      "El Khannouss",
+      "Brahim Díaz",
+      "El Kaabi",
+      "Abde"
+    ]
+  }
+}

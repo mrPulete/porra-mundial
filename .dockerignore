@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+tests
+test-results
+tmp
+scripts
+.env*
+docker-compose*.yml
+Dockerfile
+.dockerignore
+playwright.config.ts
+vitest.config.ts
