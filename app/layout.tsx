@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import "./globals.css";
 
-const APP_VERSION = "0.2.1";
+const APP_VERSION = "0.3.0";
 
 const headingFont = Barlow_Condensed({
   weight: ["600", "700", "800"],
