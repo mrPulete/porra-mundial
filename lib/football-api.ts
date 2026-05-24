@@ -556,7 +556,7 @@ function enrichTeamFootballData(teamCode: string, data: TeamFootballInfo): TeamF
   const lineup = PROBABLE_LINEUPS[teamCode];
 
   let probableXI = Array.isArray(data.probableXI) && data.probableXI.length > 0 ? data.probableXI : lineup?.players ?? [];
-  let formation = data.formation ?? lineup?.formation ?? null;
+  let formation: string | null = data.formation ?? lineup?.formation ?? null;
 
   if (probableXI.length === 0) {
     const fallback = buildFallbackXIFromSquad(data.squad ?? []);

@@ -63,7 +63,7 @@ export default function TeamSquad({ teamData, footballData }: { teamData: TeamDa
   const formation = footballData?.formation;
   const hasSquad = squad.length > 0;
   const hasXI = probableXI.length > 0;
-  const fieldSlots = buildFieldSlots(probableXI, formation);
+  const fieldSlots = buildFieldSlots(probableXI, formation ?? null);
 
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-lg p-3 shadow-sm">

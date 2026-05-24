@@ -222,7 +222,7 @@ export async function POST(request: Request) {
                 awayScore: existing.predictedAway,
                 predictedQualifiedTeamId: existing.predictedQualifiedTeamId,
               }
-            : null,
+            : undefined,
           newValue: {
             homeScore: item.homeScore,
             awayScore: item.awayScore,

@@ -164,7 +164,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
           questionId: item.questionId,
           changeType: existing ? "BONUS_EDIT" : "BONUS_SUBMIT",
-          oldValue: existing ? { answer: existing.answer } : null,
+          oldValue: existing ? { answer: existing.answer } : undefined,
           newValue: { answer: item.answer },
           penaltyApplied: penalty,
         },
