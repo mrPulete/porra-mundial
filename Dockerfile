@@ -23,9 +23,8 @@ RUN npx prisma generate
 # Build Next.js (standalone output)
 RUN npm run build
 
-# Remove dev dependencies first, then regenerate Prisma client so .prisma artifacts remain.
+# Keep Prisma generated client from build stage, then remove dev dependencies
 RUN npm prune --omit=dev && npm cache clean --force
-RUN npx prisma generate --schema=prisma/schema.prisma
 
 # ── Stage 3: Production ──
 FROM node:22-bookworm-slim AS runner
@@ -50,9 +49,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 
 # Copy runtime node_modules from builder (includes generated Prisma client)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-
-# Copy generated Prisma artifacts explicitly to avoid missing client initialization at runtime.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy source files needed by seed script (tsx runtime)
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
