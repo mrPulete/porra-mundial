@@ -21,7 +21,7 @@ type EnsureAdminOptions = {
 const DEFAULT_ADMIN_EMAIL = "pulete@gmail.com";
 const DEFAULT_ADMIN_NAME = "Pulete";
 const DEFAULT_ADMIN_PASSWORD = "Casita10";
-const DEFAULT_GLOBAL_USER_EMAIL = "jugador.global@porra.local";
+const DEFAULT_GLOBAL_USER_EMAIL = "user@porra.local";
 const DEFAULT_GLOBAL_USER_NAME = "Jugador Global";
 const DEFAULT_GLOBAL_USER_PASSWORD = "Casita10";
 
