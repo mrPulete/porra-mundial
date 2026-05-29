@@ -6,6 +6,8 @@ async function main() {
 
   console.log("Admin verificado");
   console.log(`Admin: ${result.adminEmail}`);
+  console.log("Usuario global verificado");
+  console.log(`Usuario global: ${result.globalUserEmail}`);
 }
 
 main()

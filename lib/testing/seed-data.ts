@@ -21,6 +21,9 @@ type EnsureAdminOptions = {
 const DEFAULT_ADMIN_EMAIL = "pulete@gmail.com";
 const DEFAULT_ADMIN_NAME = "Pulete";
 const DEFAULT_ADMIN_PASSWORD = "Casita10";
+const DEFAULT_GLOBAL_USER_EMAIL = "jugador.global@porra.local";
+const DEFAULT_GLOBAL_USER_NAME = "Jugador Global";
+const DEFAULT_GLOBAL_USER_PASSWORD = "Casita10";
 
 async function clearDatabase() {
   await prisma.predictionHistory.deleteMany();
@@ -92,11 +95,51 @@ export async function ensureAdminUser(options: EnsureAdminOptions = {}) {
 
   await ensureLeagueScoringConfig(globalLeague.id);
 
+  const globalUserPasswordHash = await bcrypt.hash(DEFAULT_GLOBAL_USER_PASSWORD, 10);
+
+  const globalUser = await prisma.user.upsert({
+    where: {
+      email: DEFAULT_GLOBAL_USER_EMAIL,
+    },
+    update: {
+      name: DEFAULT_GLOBAL_USER_NAME,
+      passwordHash: globalUserPasswordHash,
+      role: UserRole.USER,
+    },
+    create: {
+      name: DEFAULT_GLOBAL_USER_NAME,
+      email: DEFAULT_GLOBAL_USER_EMAIL,
+      passwordHash: globalUserPasswordHash,
+      role: UserRole.USER,
+    },
+    select: { id: true },
+  });
+
+  await prisma.leagueMember.upsert({
+    where: {
+      leagueId_userId: {
+        leagueId: globalLeague.id,
+        userId: globalUser.id,
+      },
+    },
+    update: {
+      role: "MEMBER",
+    },
+    create: {
+      leagueId: globalLeague.id,
+      userId: globalUser.id,
+      role: "MEMBER",
+    },
+  });
+
   return {
     adminEmail,
     adminPassword,
     adminId: admin.id,
     globalLeagueId: globalLeague.id,
+    globalUserEmail: DEFAULT_GLOBAL_USER_EMAIL,
+    globalUserPassword: DEFAULT_GLOBAL_USER_PASSWORD,
+    globalUserId: globalUser.id,
   };
 }
 
