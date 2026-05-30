@@ -13,6 +13,8 @@ type AdminMatch = {
   city: string;
   homeName: string;
   awayName: string;
+  homeTeamId: string;
+  awayTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
   isFinished: boolean;
@@ -67,29 +69,9 @@ type UserSubmissionSummary = {
   isOwner: boolean;
   latestOfficialVersion: number | null;
   latestOfficialSubmittedAt: string | null;
-};
-
-type UserPredictionView = {
-  matchId: string;
-  stage: MatchStage;
-  kickoffAt: string;
-  homeName: string;
-  homeFlag: string;
-  awayName: string;
-  awayFlag: string;
-  predictedHome: number;
-  predictedAway: number;
-  predictedQualifiedTeamId: string | null;
-  pointsAwarded: number;
-  penaltyPoints: number;
-};
-
-type UserBonusView = {
-  questionId: string;
-  question: string;
-  answer: unknown;
-  pointsAwarded: number;
-  penaltyPoints: number;
+  savedPredictions: number;
+  remainingPredictions: number;
+  hasOfficialSubmission: boolean;
 };
 
 type DemoAction =
@@ -134,9 +116,6 @@ export function AdminConsole({
   leagues,
   activeLeagueId,
   userSubmissionSummaries,
-  selectedViewUserId,
-  selectedUserPredictions,
-  selectedUserBonus,
   demoToolsEnabled,
 }: {
   matches: AdminMatch[];
@@ -147,9 +126,6 @@ export function AdminConsole({
   leagues: LeagueOption[];
   activeLeagueId: string;
   userSubmissionSummaries: UserSubmissionSummary[];
-  selectedViewUserId: string | null;
-  selectedUserPredictions: UserPredictionView[];
-  selectedUserBonus: UserBonusView[];
   demoToolsEnabled: boolean;
 }) {
   const [localRules, setLocalRules] = useState<Rule[]>(rules);
@@ -160,10 +136,9 @@ export function AdminConsole({
   const [savingScoring, setSavingScoring] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [runningDemoAction, setRunningDemoAction] = useState<DemoAction | null>(null);
-  const [demoUsers, setDemoUsers] = useState(24);
+  const [demoUsers, setDemoUsers] = useState(4);
   const [demoLeagues, setDemoLeagues] = useState(3);
   const [demoMemberships, setDemoMemberships] = useState(2);
-  const [resultsViewerUserId, setResultsViewerUserId] = useState(() => userSubmissionSummaries[0]?.userId ?? "");
   const [roundLockAction, setRoundLockAction] = useState<{ stage: MatchStage; mode: RoundLockMode } | null>(null);
   const [resettingPorra, setResettingPorra] = useState(false);
 
@@ -322,7 +297,7 @@ export function AdminConsole({
     setRecalculating(false);
   };
 
-  const saveResults = async (results: { matchId: string; homeScore: number; awayScore: number }[]) => {
+  const saveResults = async (results: { matchId: string; homeScore: number; awayScore: number; qualifiedTeamId?: string | null }[]) => {
     setMessage("");
     setSavingResults(true);
     
@@ -627,149 +602,41 @@ export function AdminConsole({
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
         <h2 className="text-lg font-black">6) Predicciones oficiales por jugador</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Como administrador puedes inspeccionar el ultimo envio oficial de cualquier jugador en la liga activa.
+          Abre la pantalla de cada jugador en una pestana nueva. Aqui ves el estado de progreso de su porra.
         </p>
 
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="text-xs font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Abrir resultados en nueva pestana
-            <select
-              value={resultsViewerUserId}
-              onChange={(e) => setResultsViewerUserId(e.target.value)}
-              className="mt-1 block min-w-64 rounded-xl border border-black/10 bg-white px-2 py-1.5 text-sm font-semibold dark:border-white/20 dark:bg-neutral-900"
-            >
-              {userSubmissionSummaries.map((user) => (
-                <option key={user.userId} value={user.userId}>
+        {userSubmissionSummaries.length === 0 ? (
+          <p className="mt-3 text-sm text-neutral-500">No hay usuarios para mostrar en esta liga.</p>
+        ) : (
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {userSubmissionSummaries.map((user) => (
+              <article key={user.userId} className="rounded-xl border border-black/10 bg-neutral-50 p-3 text-sm dark:border-white/10 dark:bg-neutral-800/40">
+                <p className="font-black">
                   {user.userName}
                   {user.isOwner ? " (Owner)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          {resultsViewerUserId && (
-            <a
-              href={buildUserResultsHref(resultsViewerUserId)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white"
-            >
-              Ver resultados
-            </a>
-          )}
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {userSubmissionSummaries.map((user) => {
-            const isActive = selectedViewUserId === user.userId;
-            return (
-              <a
-                key={user.userId}
-                href={buildUserResultsHref(user.userId)}
-                target="_blank"
-                rel="noreferrer"
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold ${
-                  isActive
-                    ? "bg-emerald-700 text-white"
-                    : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-200"
-                }`}
-                title={`${user.userEmail} · abrir en nueva pestana`}
-              >
-                {user.userName}
-                {user.isOwner ? " (Owner)" : ""}
-              </a>
-            );
-          })}
-        </div>
-
-        {selectedViewUserId ? (
-          <>
-            {(() => {
-              const selectedSummary = userSubmissionSummaries.find((user) => user.userId === selectedViewUserId) ?? null;
-              return (
-                <div className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 text-sm dark:border-white/10 dark:bg-neutral-800/50">
-                  <p className="font-semibold">Jugador: {selectedSummary?.userName ?? "-"}</p>
-                  <p className="text-neutral-600 dark:text-neutral-300">Email: {selectedSummary?.userEmail ?? "-"}</p>
-                  <p className="mt-1 text-neutral-600 dark:text-neutral-300">
-                    Estado oficial: {selectedSummary?.latestOfficialVersion ? `v${selectedSummary.latestOfficialVersion}` : "Sin envio oficial"}
-                  </p>
-                  {selectedSummary?.latestOfficialSubmittedAt && (
-                    <p className="text-neutral-600 dark:text-neutral-300">
-                      Ultimo envio: {new Date(selectedSummary.latestOfficialSubmittedAt).toLocaleString("es-ES")}
-                    </p>
-                  )}
+                </p>
+                <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{user.userEmail}</p>
+                <div className="mt-2 space-y-0.5 text-xs text-neutral-700 dark:text-neutral-200">
+                  <p>Pronosticos guardados: {user.savedPredictions}</p>
+                  <p>Pendientes: {user.remainingPredictions}</p>
+                  <p>Estado: {user.hasOfficialSubmission ? `Submiteado (v${user.latestOfficialVersion})` : "Sin submit oficial"}</p>
                 </div>
-              );
-            })()}
-
-            <div className="mt-4 grid gap-4 xl:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wide text-neutral-600 dark:text-neutral-300">Partidos oficiales</h3>
-                {selectedUserPredictions.length === 0 ? (
-                  <p className="mt-2 text-sm text-neutral-500">Sin predicciones oficiales registradas.</p>
-                ) : (
-                  <div className="mt-2 overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
-                    <table className="min-w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                          <th className="px-2 py-1">Partido</th>
-                          <th className="px-2 py-1">Pronostico</th>
-                          <th className="px-2 py-1">Pts</th>
-                          <th className="px-2 py-1">Pen.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedUserPredictions.map((item) => (
-                          <tr key={item.matchId} className="border-t border-black/10 dark:border-white/10">
-                            <td className="px-2 py-1">
-                              {item.homeFlag} {item.homeName} vs {item.awayFlag} {item.awayName}
-                              <p className="text-xs text-neutral-500">{new Date(item.kickoffAt).toLocaleString("es-ES")}</p>
-                            </td>
-                            <td className="px-2 py-1 font-bold">{item.predictedHome}-{item.predictedAway}</td>
-                            <td className="px-2 py-1 text-right">{item.pointsAwarded}</td>
-                            <td className="px-2 py-1 text-right">{item.penaltyPoints}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                {user.latestOfficialSubmittedAt && (
+                  <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Ultimo envio: {new Date(user.latestOfficialSubmittedAt).toLocaleString("es-ES")}
+                  </p>
                 )}
-              </div>
-
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wide text-neutral-600 dark:text-neutral-300">Bonus oficiales</h3>
-                {selectedUserBonus.length === 0 ? (
-                  <p className="mt-2 text-sm text-neutral-500">Sin respuestas bonus oficiales registradas.</p>
-                ) : (
-                  <div className="mt-2 overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
-                    <table className="min-w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                          <th className="px-2 py-1">Pregunta</th>
-                          <th className="px-2 py-1">Respuesta</th>
-                          <th className="px-2 py-1">Pts</th>
-                          <th className="px-2 py-1">Pen.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedUserBonus.map((item) => (
-                          <tr key={item.questionId} className="border-t border-black/10 dark:border-white/10">
-                            <td className="px-2 py-1">{item.question}</td>
-                            <td className="px-2 py-1 font-semibold">
-                              {typeof item.answer === "string" ? item.answer : JSON.stringify(item.answer)}
-                            </td>
-                            <td className="px-2 py-1 text-right">{item.pointsAwarded}</td>
-                            <td className="px-2 py-1 text-right">{item.penaltyPoints}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <p className="mt-3 text-sm text-neutral-500">No hay usuarios para mostrar en esta liga.</p>
+                <a
+                  href={buildUserResultsHref(user.userId)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white"
+                >
+                  Abrir pantalla del usuario
+                </a>
+              </article>
+            ))}
+          </div>
         )}
       </section>
 

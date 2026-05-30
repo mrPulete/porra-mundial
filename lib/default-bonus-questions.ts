@@ -78,6 +78,12 @@ const FIFA_BONUS_QUESTIONS: BonusQuestionSeed[] = [
     points: 5,
     optionsSource: "teams",
   },
+  {
+    code: "MOST_FUN_TEAM",
+    question: "Cual es el equipo mas divertido en la FIFA?",
+    points: 3,
+    optionsSource: "teams",
+  },
 ];
 
 function buildTeamOptions(

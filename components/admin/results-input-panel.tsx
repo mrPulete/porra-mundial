@@ -11,6 +11,8 @@ type AdminMatch = {
   city: string;
   homeName: string;
   awayName: string;
+  homeTeamId: string;
+  awayTeamId: string;
   homeScore: number | null;
   awayScore: number | null;
   isFinished: boolean;
@@ -35,10 +37,13 @@ export function ResultsInputPanel({
   loading,
 }: {
   matches: AdminMatch[];
-  onSaveResults: (results: { matchId: string; homeScore: number; awayScore: number }[]) => Promise<void>;
+  onSaveResults: (results: { matchId: string; homeScore: number; awayScore: number; qualifiedTeamId?: string | null }[]) => Promise<void>;
   loading?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<string>("GROUP");
+  const [modalMatch, setModalMatch] = useState<AdminMatch | null>(null);
+  const [modalScore, setModalScore] = useState({ home: "", away: "" });
+  const [modalQualifiedTeamId, setModalQualifiedTeamId] = useState("");
   const [localResults, setLocalResults] = useState<Record<string, { home: string; away: string }>>(() => {
     const init: Record<string, { home: string; away: string }> = {};
     for (const match of matches) {
@@ -49,6 +54,9 @@ export function ResultsInputPanel({
     }
     return init;
   });
+  const [localQualifiedTeams, setLocalQualifiedTeams] = useState<Record<string, string>>({});
+
+  const isKnockoutStage = (stage: MatchStage) => stage !== "GROUP";
 
   const groupedByPhase = useMemo(() => {
     const groups = new Map<string, AdminMatch[]>();
@@ -62,26 +70,43 @@ export function ResultsInputPanel({
     return groups;
   }, [matches]);
 
-  const groupedByDate = useMemo(() => {
+  const groupedVisibleBuckets = useMemo(() => {
     const phaseMatches = groupedByPhase.get(activeTab) || [];
-    const dateGroups = new Map<string, AdminMatch[]>();
+    const groups = new Map<string, AdminMatch[]>();
+
+    if (activeTab === "GROUP") {
+      for (const match of phaseMatches) {
+        const key = `Grupo ${match.group ?? "-"}`;
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)?.push(match);
+      }
+
+      for (const groupMatches of groups.values()) {
+        groupMatches.sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
+      }
+
+      return new Map([...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "es")));
+    }
+
     for (const match of phaseMatches) {
       const dateKey = new Date(match.kickoffAt).toLocaleDateString("es-ES", {
         weekday: "short",
         month: "short",
         day: "numeric",
       });
-      if (!dateGroups.has(dateKey)) {
-        dateGroups.set(dateKey, []);
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
       }
-      dateGroups.get(dateKey)?.push(match);
+      groups.get(dateKey)?.push(match);
     }
 
-    for (const dayMatches of dateGroups.values()) {
+    for (const dayMatches of groups.values()) {
       dayMatches.sort((a, b) => new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime());
     }
 
-    return dateGroups;
+    return groups;
   }, [activeTab, groupedByPhase]);
 
   const handleSave = async () => {
@@ -89,14 +114,73 @@ export function ResultsInputPanel({
     for (const match of matches) {
       const result = localResults[match.id];
       if (result?.home !== "" && result?.away !== "") {
+        const isDraw = result.home === result.away;
+        const qualifiedTeamId = isKnockoutStage(match.stage) && isDraw ? localQualifiedTeams[match.id] ?? null : null;
         resultsToSave.push({
           matchId: match.id,
           homeScore: Number(result.home),
           awayScore: Number(result.away),
+          qualifiedTeamId,
         });
       }
     }
     await onSaveResults(resultsToSave);
+  };
+
+  const openResultModal = (match: AdminMatch) => {
+    setModalMatch(match);
+    setModalScore({
+      home: localResults[match.id]?.home ?? "",
+      away: localResults[match.id]?.away ?? "",
+    });
+    setModalQualifiedTeamId(localQualifiedTeams[match.id] ?? "");
+  };
+
+  const applyResultFromModal = () => {
+    if (!modalMatch) {
+      return;
+    }
+
+    const isDraw = modalScore.home !== "" && modalScore.away !== "" && modalScore.home === modalScore.away;
+    const needsQualifier = isKnockoutStage(modalMatch.stage) && isDraw;
+
+    setLocalResults((prev) => ({
+      ...prev,
+      [modalMatch.id]: {
+        home: modalScore.home,
+        away: modalScore.away,
+      },
+    }));
+
+    setLocalQualifiedTeams((prev) => ({
+      ...prev,
+      [modalMatch.id]: needsQualifier ? modalQualifiedTeamId : "",
+    }));
+
+    setModalMatch(null);
+  };
+
+  const clearResultFromModal = () => {
+    if (!modalMatch) {
+      return;
+    }
+
+    setLocalResults((prev) => ({
+      ...prev,
+      [modalMatch.id]: {
+        home: "",
+        away: "",
+      },
+    }));
+
+    setLocalQualifiedTeams((prev) => ({
+      ...prev,
+      [modalMatch.id]: "",
+    }));
+
+    setModalScore({ home: "", away: "" });
+    setModalQualifiedTeamId("");
+    setModalMatch(null);
   };
 
   const renderMatchCards = (matchesToRender: AdminMatch[]) => {
@@ -122,42 +206,33 @@ export function ResultsInputPanel({
                 <p className="truncate text-xs font-bold leading-tight">{match.homeName}</p>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1.5">
-                <input
-                  type="number"
-                  min="0"
-                  max="99"
-                  className="h-9 w-12 rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900"
-                  value={localResults[match.id]?.home ?? ""}
-                  onChange={(e) =>
-                    setLocalResults((prev) => ({
-                      ...prev,
-                      [match.id]: { ...prev[match.id], home: e.target.value },
-                    }))
-                  }
-                  placeholder=""
-                />
+              <button
+                type="button"
+                onClick={() => openResultModal(match)}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+              >
+                <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
+                  {localResults[match.id]?.home ?? ""}
+                </div>
                 <span className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-black tracking-wide text-white">VS</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="99"
-                  className="h-9 w-12 rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900"
-                  value={localResults[match.id]?.away ?? ""}
-                  onChange={(e) =>
-                    setLocalResults((prev) => ({
-                      ...prev,
-                      [match.id]: { ...prev[match.id], away: e.target.value },
-                    }))
-                  }
-                  placeholder=""
-                />
-              </div>
+                <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
+                  {localResults[match.id]?.away ?? ""}
+                </div>
+              </button>
 
               <div className="min-w-0 flex-1 text-center">
                 <p className="truncate text-xs font-bold leading-tight">{match.awayName}</p>
               </div>
             </div>
+
+            {isKnockoutStage(match.stage) &&
+              localResults[match.id]?.home !== "" &&
+              localResults[match.id]?.away !== "" &&
+              localResults[match.id]?.home === localResults[match.id]?.away && (
+                <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
+                  Clasifica: {localQualifiedTeams[match.id] === match.homeTeamId ? match.homeName : localQualifiedTeams[match.id] === match.awayTeamId ? match.awayName : "pendiente"}
+                </p>
+              )}
           </div>
         ))}
       </div>
@@ -165,7 +240,18 @@ export function ResultsInputPanel({
   };
 
   const currentPhaseMatches = groupedByPhase.get(activeTab) || [];
-  const pendingCount = currentPhaseMatches.filter((m) => !localResults[m.id]?.home || !localResults[m.id]?.away).length;
+  const pendingCount = currentPhaseMatches.filter((m) => {
+    const scores = localResults[m.id];
+    if (!scores?.home || !scores?.away) {
+      return true;
+    }
+
+    if (isKnockoutStage(m.stage) && scores.home === scores.away) {
+      return !localQualifiedTeams[m.id];
+    }
+
+    return false;
+  }).length;
 
   return (
     <div className="space-y-4">
@@ -209,11 +295,11 @@ export function ResultsInputPanel({
             </div>
 
             <div className="space-y-4">
-              {groupedByDate.size > 0 ? (
-                Array.from(groupedByDate.entries()).map(([dateKey, dateMatches]) => (
-                  <div key={dateKey}>
-                    <h4 className="mb-2 text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{dateKey}</h4>
-                    {renderMatchCards(dateMatches)}
+              {groupedVisibleBuckets.size > 0 ? (
+                Array.from(groupedVisibleBuckets.entries()).map(([bucketLabel, bucketMatches]) => (
+                  <div key={bucketLabel}>
+                    <h4 className="mb-2 text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{bucketLabel}</h4>
+                    {renderMatchCards(bucketMatches)}
                   </div>
                 ))
               ) : (
@@ -233,6 +319,121 @@ export function ResultsInputPanel({
         >
           {loading ? "Guardando..." : "Guardar Resultados"}
         </button>
+      )}
+
+      {modalMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-black/10 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-neutral-900">
+            <h3 className="text-base font-black">Selecciona resultado</h3>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+              {modalMatch.homeName} vs {modalMatch.awayName}
+            </p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              {new Date(modalMatch.kickoffAt).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}
+              {" · "}
+              {new Date(modalMatch.kickoffAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+              {" · "}
+              {modalMatch.stadium || "Sede por confirmar"}
+              {modalMatch.city ? `, ${modalMatch.city}` : ""}
+            </p>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                {modalMatch.homeName}
+                <select
+                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-neutral-950"
+                  value={modalScore.home}
+                  onChange={(e) => setModalScore((prev) => ({ ...prev, home: e.target.value }))}
+                >
+                  <option value="">-</option>
+                  {Array.from({ length: 11 }, (_, index) => (
+                    <option key={index} value={String(index)}>
+                      {index}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                {modalMatch.awayName}
+                <select
+                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-neutral-950"
+                  value={modalScore.away}
+                  onChange={(e) => setModalScore((prev) => ({ ...prev, away: e.target.value }))}
+                >
+                  <option value="">-</option>
+                  {Array.from({ length: 11 }, (_, index) => (
+                    <option key={index} value={String(index)}>
+                      {index}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {isKnockoutStage(modalMatch.stage) && modalScore.home !== "" && modalScore.away !== "" && modalScore.home === modalScore.away && (
+              <label className="mt-3 block text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                Si hay empate, ¿quien clasifica?
+                <select
+                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-neutral-950"
+                  value={modalQualifiedTeamId}
+                  onChange={(e) => setModalQualifiedTeamId(e.target.value)}
+                >
+                  <option value="">Sin seleccionar</option>
+                  <option value={modalMatch.homeTeamId}>{modalMatch.homeName}</option>
+                  <option value={modalMatch.awayTeamId}>{modalMatch.awayName}</option>
+                </select>
+              </label>
+            )}
+
+            <div className="mt-3 grid grid-cols-3 gap-1">
+              {[
+                { home: "1", away: "0" },
+                { home: "1", away: "1" },
+                { home: "0", away: "1" },
+                { home: "2", away: "1" },
+                { home: "2", away: "2" },
+                { home: "1", away: "2" },
+              ].map((score) => (
+                <button
+                  key={`${score.home}-${score.away}`}
+                  onClick={() => setModalScore(score)}
+                  className="rounded border border-black/10 px-2 py-1 text-xs font-bold hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-neutral-800"
+                >
+                  {score.home}-{score.away}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={clearResultFromModal}
+                className="mr-auto rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-bold text-red-700 hover:bg-red-100 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+              >
+                Borrar resultado
+              </button>
+              <button
+                onClick={() => setModalMatch(null)}
+                className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-bold dark:border-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={applyResultFromModal}
+                disabled={
+                  modalScore.home === "" ||
+                  modalScore.away === "" ||
+                  (isKnockoutStage(modalMatch.stage) &&
+                    modalScore.home === modalScore.away &&
+                    !modalQualifiedTeamId)
+                }
+                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -7,6 +7,7 @@ export default async function BracketPage() {
     where: {
       stage: {
         in: [
+          MatchStage.ROUND_OF_32,
           MatchStage.ROUND_OF_16,
           MatchStage.QUARTER_FINAL,
           MatchStage.SEMI_FINAL,
@@ -31,8 +32,10 @@ export default async function BracketPage() {
     away: { name: match.awayTeam.name, flag: match.awayTeam.flagEmoji },
     homeName: match.homeTeam.name,
     homeFlag: match.homeTeam.flagEmoji,
+    homeTeamId: match.homeTeam.id,
     awayName: match.awayTeam.name,
     awayFlag: match.awayTeam.flagEmoji,
+    awayTeamId: match.awayTeam.id,
     isFinished: match.isFinished,
     homeScore: match.homeScore,
     awayScore: match.awayScore,
@@ -41,8 +44,8 @@ export default async function BracketPage() {
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8">
       <h1 className="text-3xl font-black">Knockout Bracket</h1>
-      <p className="text-neutral-600 dark:text-neutral-300">Selecciona ganadores por ronda. Diseno mobile-first con scroll horizontal en pantallas chicas.</p>
-      <BracketBoard matches={bracketMatches} />
+      <p className="text-neutral-600 dark:text-neutral-300">Vista visual de cruces hasta la final, sin marcadores.</p>
+      <BracketBoard matches={bracketMatches} visualOnly />
     </main>
   );
 }

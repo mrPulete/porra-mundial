@@ -73,7 +73,7 @@ export async function getMatchBoardData(options: {
 
   return matches.map((match) => {
     const prediction = includePredictions ? match.predictions[0] : null;
-    const hasExplicitPrediction = Boolean(prediction?.predictedOutcome);
+    const hasExplicitPrediction = Boolean(prediction);
     const draftPrediction = includePredictions ? draftMap.get(match.id) : undefined;
     const venue = resolveMatchVenue(match.roundOrder, match.excelCode);
 
@@ -145,7 +145,7 @@ export async function getMatchBoardData(options: {
           : options.mode === "results"
           ? null
           : hasExplicitPrediction
-            ? ((prediction?.predictedOutcome as "1" | "X" | "2" | null) ?? null)
+            ? ((prediction?.predictedOutcome as "1" | "X" | "2" | null) ?? outcomeFromScore(prediction!.predictedHome, prediction!.predictedAway))
             : null,
       officialPredictedHome,
       officialPredictedAway,

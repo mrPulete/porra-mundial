@@ -18,10 +18,12 @@ export function BracketBoard({
   matches,
   liveScores,
   onPickMatch,
+  visualOnly = false,
 }: {
   matches: TournamentMatchLike[];
   liveScores?: ScoreMap;
   onPickMatch?: (match: TournamentMatchLike) => void;
+  visualOnly?: boolean;
 }) {
   const { rounds } = buildBracketTree(matches, liveScores);
   const byCode = new Map(matches.filter((match) => Boolean(match.code)).map((match) => [match.code as string, match]));
@@ -76,27 +78,29 @@ export function BracketBoard({
 
                     <div className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">{match.label}</div>
 
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">
-                        {selectedScore?.home !== undefined &&
-                        selectedScore?.away !== undefined &&
-                        selectedScore.home !== "" &&
-                        selectedScore.away !== ""
-                          ? `${selectedScore.home} - ${selectedScore.away}`
-                          : "Sin resultado"}
-                      </span>
-                      <button
-                        disabled={!sourceMatch || !onPickMatch}
-                        onClick={() => {
-                          if (sourceMatch && onPickMatch) {
-                            onPickMatch(sourceMatch);
-                          }
-                        }}
-                        className="rounded-lg border border-emerald-500/30 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                      >
-                        Incluir resultado
-                      </button>
-                    </div>
+                    {!visualOnly && (
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                          {selectedScore?.home !== undefined &&
+                          selectedScore?.away !== undefined &&
+                          selectedScore.home !== "" &&
+                          selectedScore.away !== ""
+                            ? `${selectedScore.home} - ${selectedScore.away}`
+                            : "Sin resultado"}
+                        </span>
+                        <button
+                          disabled={!sourceMatch || !onPickMatch}
+                          onClick={() => {
+                            if (sourceMatch && onPickMatch) {
+                              onPickMatch(sourceMatch);
+                            }
+                          }}
+                          className="rounded-lg border border-emerald-500/30 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                        >
+                          Incluir resultado
+                        </button>
+                      </div>
+                    )}
                   </article>
                 );
               })}

@@ -107,7 +107,6 @@ const KNOCKOUT_SUBTABS = [
 
 const THIRDS_STORAGE_KEY = "porra.thirds.order";
 
-type SubmissionMode = "draft" | "official";
 type SubmissionStatus = "DRAFT" | "OFFICIAL";
 type SubmissionWindowStatus = "OPEN" | "LOCKED" | "REOPENED";
 
@@ -273,10 +272,8 @@ export function UnifiedPredictionsBoard({
   const [officialBonusAnswers, setOfficialBonusAnswers] = useState<Record<string, string>>(() => initialOfficialBonusValues);
   const [submissionStatus, setSubmissionStatus] = useState<SubmissionStatus>("DRAFT");
   const [lastOfficialSubmittedAt, setLastOfficialSubmittedAt] = useState<string | null>(initialLastOfficialSubmittedAt);
-  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeSubmissionMode, setActiveSubmissionMode] = useState<SubmissionMode | null>(null);
   const [officialConfirmOpen, setOfficialConfirmOpen] = useState(false);
   const [modalMatch, setModalMatch] = useState<PickableMatch | null>(null);
   const [modalScore, setModalScore] = useState({ home: "", away: "" });
@@ -426,8 +423,8 @@ export function UnifiedPredictionsBoard({
   }, [matches, values, thirdOrder]);
 
   const bracket = useMemo(() => {
-    return buildBracketTree(matches, values, thirdOrder);
-  }, [matches, values, thirdOrder]);
+    return buildBracketTree(matches, values, thirdOrder, qualifierValues);
+  }, [matches, values, thirdOrder, qualifierValues]);
 
   const knockoutMatchesByCode = useMemo(() => {
     return new Map(matches.filter((match) => Boolean(match.code)).map((match) => [match.code as string, match]));
@@ -540,9 +537,9 @@ export function UnifiedPredictionsBoard({
     }
   }, [hasPendingOfficialChanges, lastOfficialSubmittedAt, submissionStatus]);
 
-  const persistPredictions = async (mode: SubmissionMode) => {
+  const persistPredictions = async () => {
     const payload = {
-      mode,
+      mode: "official" as const,
       predictions: Object.entries(values)
         .filter(([, score]) => score.home !== "" && score.away !== "")
         .map(([matchId, score]) => ({
@@ -571,9 +568,9 @@ export function UnifiedPredictionsBoard({
     }
   };
 
-  const persistBonusAnswers = async (mode: SubmissionMode) => {
+  const persistBonusAnswers = async () => {
     const payload = {
-      mode,
+      mode: "official" as const,
       answers: Object.entries(bonusAnswers)
         .filter(([, answer]) => answer !== "")
         .map(([questionId, answer]) => ({
@@ -600,38 +597,26 @@ export function UnifiedPredictionsBoard({
     }
   };
 
-  const persistSubmission = async (mode: SubmissionMode) => {
+  const persistSubmission = async () => {
     if (readOnly || isLocked) {
       return;
     }
 
     setLoading(true);
-    setActiveSubmissionMode(mode);
     setMessage("");
 
     try {
-      if (showQuestions && mode === "official") {
-        await persistBonusAnswers(mode);
-        await persistPredictions(mode);
+      if (showQuestions) {
+        await persistBonusAnswers();
+        await persistPredictions();
       } else {
-        await persistPredictions(mode);
-        if (showQuestions) {
-          await persistBonusAnswers(mode);
-        }
+        await persistPredictions();
       }
 
       const nowIso = new Date().toISOString();
 
-      if (mode === "draft") {
-        setSubmissionStatus("DRAFT");
-        setLastDraftSavedAt(nowIso);
-        setMessage("📝 Borrador guardado");
-        return;
-      }
-
       setSubmissionStatus("OFFICIAL");
       setLastOfficialSubmittedAt(nowIso);
-      setLastDraftSavedAt(null);
       setOfficialValues({ ...values });
       setOfficialQualifierValues({ ...qualifierValues });
       setOfficialBonusAnswers({ ...bonusAnswers });
@@ -640,12 +625,7 @@ export function UnifiedPredictionsBoard({
       setMessage(error instanceof Error ? error.message : "Error de red");
     } finally {
       setLoading(false);
-      setActiveSubmissionMode(null);
     }
-  };
-
-  const saveDraft = async () => {
-    await persistSubmission("draft");
   };
 
   const fillRandomPredictions = () => {
@@ -713,13 +693,13 @@ export function UnifiedPredictionsBoard({
       return;
     }
 
-    await persistSubmission("official");
+    await persistSubmission();
   };
 
   const selectedGroupStandings = activeGroup ? groupStandings.get(activeGroup) ?? [] : [];
 
   const openResultModal = (match: PickableMatch) => {
-    if (readOnly) {
+    if (readOnly || isLocked) {
       return;
     }
 
@@ -865,11 +845,6 @@ export function UnifiedPredictionsBoard({
                 ? "🟠 REOPENED"
                 : "🔴 LOCKED"}
           </span>
-          {lastDraftSavedAt && !isLocked && (
-            <span className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 dark:border-white/10 dark:bg-neutral-950 dark:text-neutral-200">
-              📝 Borrador guardado
-            </span>
-          )}
           {lastOfficialSubmittedAt && (
             <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
               ✅ Predicción oficial enviada
@@ -891,6 +866,12 @@ export function UnifiedPredictionsBoard({
           <p className="mb-3 text-xs text-neutral-600 dark:text-neutral-300">
             Ultimo envio oficial: {new Date(lastOfficialSubmittedAt).toLocaleDateString("es-ES")} {new Date(lastOfficialSubmittedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
           </p>
+        )}
+
+        {isLocked && (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-50/80 p-3 text-sm text-red-900 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-100">
+            La porra esta cerrada: no se pueden tocar resultados ni enviar cambios.
+          </div>
         )}
 
         {activeSection === "GROUPS" && availableGroups.length > 0 && (
@@ -1183,8 +1164,8 @@ export function UnifiedPredictionsBoard({
 
                             <button
                               type="button"
-                              disabled={readOnly || !sourceMatch || !canEditKnockoutStage}
-                              onClick={() => { if (!readOnly && sourceMatch && canEditKnockoutStage) openResultModal(sourceMatch); }}
+                              disabled={readOnly || isLocked || !sourceMatch || !canEditKnockoutStage}
+                              onClick={() => { if (!readOnly && !isLocked && sourceMatch && canEditKnockoutStage) openResultModal(sourceMatch); }}
                               className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 disabled:cursor-default dark:hover:bg-emerald-900/20"
                             >
                               <div className="flex flex-col items-center gap-0.5">
@@ -1215,9 +1196,11 @@ export function UnifiedPredictionsBoard({
                             </div>
                           </div>
 
-                          <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-                            Final {formatFinalScoreTag(sourceMatch)}
-                          </p>
+                          {sourceMatch?.isFinished && (
+                            <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
+                              Real {formatFinalScoreTag(sourceMatch)}
+                            </p>
+                          )}
 
                           {!readOnly && sourceMatch?.isFinished && hasPrediction && (
                             <div className="mt-3 rounded-lg bg-neutral-200/40 px-2 py-1.5 text-center dark:bg-neutral-700/40">
@@ -1296,19 +1279,19 @@ export function UnifiedPredictionsBoard({
 
                           <button
                             type="button"
-                            onClick={() => !readOnly && !match.isFinished && canEditGroupStage && openResultModal(match)}
-                            disabled={readOnly || match.isFinished || !canEditGroupStage}
+                            onClick={() => !readOnly && !isLocked && !match.isFinished && canEditGroupStage && openResultModal(match)}
+                            disabled={readOnly || isLocked || match.isFinished || !canEditGroupStage}
                             className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 disabled:cursor-default dark:hover:bg-emerald-900/20"
                           >
                             <div className="flex flex-col items-center gap-0.5">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
-                                {match.isFinished ? match.homeScore : (hScore || "")}
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
+                                  {hScore || ""}
                               </div>
                             </div>
                             <span className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-black tracking-wide text-white">VS</span>
                             <div className="flex flex-col items-center gap-0.5">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
-                                {match.isFinished ? match.awayScore : (aScore || "")}
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
+                                  {aScore || ""}
                               </div>
                             </div>
                           </button>
@@ -1319,9 +1302,11 @@ export function UnifiedPredictionsBoard({
                           </div>
                         </div>
 
-                        <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-                          Final {formatFinalScoreTag(match)}
-                        </p>
+                        {match.isFinished && (
+                          <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
+                            Real {formatFinalScoreTag(match)}
+                          </p>
+                        )}
 
                         {!readOnly && match.isFinished && hasPrediction && (
                           <div className="mt-3 rounded-lg bg-neutral-200/40 px-2 py-1.5 text-center dark:bg-neutral-700/40">
@@ -1369,24 +1354,17 @@ export function UnifiedPredictionsBoard({
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={fillRandomPredictions}
-                disabled={loading || isLocked || (!canEditGroupStage && !canEditKnockoutStage)}
+                disabled={loading || submissionWindowStatus !== "OPEN" || (!canEditGroupStage && !canEditKnockoutStage)}
                 className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
               >
                 Rellenar aleatorio
-              </button>
-              <button
-                onClick={saveDraft}
-                disabled={loading || isLocked || (!canEditGroupStage && !canEditKnockoutStage)}
-                className="rounded-lg border border-black/15 bg-white px-4 py-2 text-xs font-bold text-neutral-800 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-              >
-                {loading && activeSubmissionMode === "draft" ? "Guardando..." : "Guardar borrador"}
               </button>
               <button
                 onClick={sendOfficial}
                 disabled={loading || isLocked || (!canEditGroupStage && !canEditKnockoutStage)}
                 className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading && activeSubmissionMode === "official" ? "Enviando..." : "Enviar oficialmente"}
+                {loading ? "Guardando..." : "Enviar / Guardar"}
               </button>
             </div>
           </div>
@@ -1543,7 +1521,7 @@ export function UnifiedPredictionsBoard({
               <button
                 onClick={async () => {
                   setOfficialConfirmOpen(false);
-                  await persistSubmission("official");
+                  await persistSubmission();
                 }}
                 className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-800"
               >

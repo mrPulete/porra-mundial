@@ -50,10 +50,10 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
             Pronosticos
           </Link>
           <Link
-            href="/matches"
-            className={navLinkClass("/matches")}
+            href="/bracket"
+            className={navLinkClass("/bracket")}
           >
-            Resultados
+            Cruces
           </Link>
           <Link
             href="/rankings"
@@ -157,11 +157,11 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
               Pronosticos
             </Link>
             <Link
-              href="/matches"
+              href="/bracket"
               onClick={() => setMobileMenuOpen(false)}
-              className={`block ${navLinkClass("/matches")} font-semibold`}
+              className={`block ${navLinkClass("/bracket")} font-semibold`}
             >
-              Resultados
+              Cruces
             </Link>
             <Link
               href="/rankings"

@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canAccessAdminForLeague } from "@/lib/league-admin";
-import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import { prisma } from "@/lib/prisma";
-import { getScoringSettings } from "@/lib/scoring-settings";
 import { getMatchBoardData } from "@/lib/match-board-data";
+import { getScoringSettings } from "@/lib/scoring-settings";
 import { UnifiedPredictionsBoard } from "@/components/unified-predictions-board";
 
 export default async function MatchesPage({
@@ -34,14 +34,13 @@ export default async function MatchesPage({
       );
     }
 
-    const [viewer, matches, scoringSettings, leagueContext] = await Promise.all([
+    const [viewer, matches, scoringSettings] = await Promise.all([
       prisma.user.findUnique({
         where: { id: viewUserId },
         select: { id: true, name: true, email: true, role: true },
       }),
       getMatchBoardData({ mode: "predictions", userId: viewUserId, leagueId }),
       getScoringSettings(),
-      resolveActiveLeagueForUser(session!.user.id),
     ]);
 
     if (!viewer || viewer.role === "ADMIN") {
@@ -101,24 +100,5 @@ export default async function MatchesPage({
     );
   }
 
-  const [matches, scoringSettings] = await Promise.all([getMatchBoardData({ mode: "results" }), getScoringSettings()]);
-
-  return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-black">Resultados</h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Sigue la fase de grupos y las eliminatorias con la misma estructura visual de pronosticos, en modo solo lectura.
-        </p>
-      </div>
-
-      <UnifiedPredictionsBoard
-        matches={matches}
-        bonusQuestions={[]}
-        scoringSettings={scoringSettings}
-        readOnly
-        showQuestions={false}
-      />
-    </main>
-  );
+  redirect("/predictions");
 }

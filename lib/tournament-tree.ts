@@ -10,17 +10,21 @@ export type TournamentMatchLike = {
   code: string | null;
   homeName: string;
   homeFlag: string;
+  homeTeamId?: string;
   awayName: string;
   awayFlag: string;
+  awayTeamId?: string;
   isFinished: boolean;
   homeScore: number | null;
   awayScore: number | null;
+  predictedQualifiedTeamId?: string | null;
 };
 
 export type TeamSnapshot = {
   name: string;
   flag: string;
   group: string;
+  teamId?: string;
 };
 
 export type GroupStanding = TeamSnapshot & {
@@ -111,12 +115,29 @@ function getScore(match: TournamentMatchLike, liveScores?: Record<string, ScoreL
   return { home, away };
 }
 
-function makeSnapshot(name: string, flag: string, group: string) {
-  return { name, flag, group } satisfies TeamSnapshot;
+function makeSnapshot(name: string, flag: string, group: string, teamId?: string) {
+  return { name, flag, group, teamId } satisfies TeamSnapshot;
 }
 
-function outcomeWinner(home: TeamSnapshot | null, away: TeamSnapshot | null, score: { home: number; away: number } | null) {
+function outcomeWinner(
+  home: TeamSnapshot | null,
+  away: TeamSnapshot | null,
+  score: { home: number; away: number } | null,
+  qualifiedTeamId?: string | null
+) {
   if (!home || !away || !score || score.home === score.away) {
+    if (!home || !away || !score || score.home !== score.away || !qualifiedTeamId) {
+      return null;
+    }
+
+    if (home.teamId === qualifiedTeamId) {
+      return home;
+    }
+
+    if (away.teamId === qualifiedTeamId) {
+      return away;
+    }
+
     return null;
   }
 
@@ -125,6 +146,10 @@ function outcomeWinner(home: TeamSnapshot | null, away: TeamSnapshot | null, sco
 
 function isPlaceholderLabel(label: string) {
   return /^W\d+$/.test(label) || /^L\d+$/.test(label) || /^[123][A-L]+$/.test(label) || label.startsWith("Ganador ");
+}
+
+function isWinnerOrLoserRef(ref: string) {
+  return /^W\d+$/.test(ref) || /^L\d+$/.test(ref);
 }
 
 function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
@@ -231,25 +256,74 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
   return standings;
 }
 
+function resolveGroupCompletion(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
+  const progress = new Map<string, { total: number; finished: number }>();
+
+  for (const match of matches) {
+    if (match.stage !== "GROUP" || !match.group) {
+      continue;
+    }
+
+    if (!progress.has(match.group)) {
+      progress.set(match.group, { total: 0, finished: 0 });
+    }
+
+    const row = progress.get(match.group)!;
+    row.total += 1;
+
+    if (getScore(match, liveScores)) {
+      row.finished += 1;
+    }
+  }
+
+  const completed = new Set<string>();
+  for (const [group, row] of progress.entries()) {
+    if (row.total > 0 && row.finished >= row.total) {
+      completed.add(group);
+    }
+  }
+
+  return { completedGroups: completed, allGroupsComplete: progress.size > 0 && completed.size === progress.size };
+}
+
 function buildRoundSlots(
   slots: readonly (readonly [string, string, string])[],
   lookup: Map<string, TeamSnapshot | null>,
   matchesByCode: Map<string, TournamentMatchLike>,
   standings: Map<string, GroupStanding[]>,
+  completedGroups: Set<string>,
+  allGroupsComplete: boolean,
   thirdRanking: GroupStanding[],
   usedThirds: Set<string>,
-  liveScores?: Record<string, ScoreLike>
+  liveScores?: Record<string, ScoreLike>,
+  liveQualifiers?: Record<string, string>
 ) {
   return slots.map(([code, homeRef, awayRef]) => {
     const match = matchesByCode.get(code);
 
-    const home = resolveSlotReference(homeRef, lookup, standings, thirdRanking, usedThirds);
-    const away = resolveSlotReference(awayRef, lookup, standings, thirdRanking, usedThirds);
+    const home = resolveSlotReference(homeRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
+    const away = resolveSlotReference(awayRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
 
-    const matchHome = match && !isPlaceholderLabel(match.homeName) ? makeSnapshot(match.homeName, match.homeFlag, match.group || "") : home;
-    const matchAway = match && !isPlaceholderLabel(match.awayName) ? makeSnapshot(match.awayName, match.awayFlag, match.group || "") : away;
+    const canUseStaticHomeTeam = !isWinnerOrLoserRef(homeRef);
+    const canUseStaticAwayTeam = !isWinnerOrLoserRef(awayRef);
 
-    const winner = match ? outcomeWinner(matchHome, matchAway, getScore(match, liveScores)) : null;
+    const matchHome =
+      match && canUseStaticHomeTeam && !isPlaceholderLabel(match.homeName)
+        ? makeSnapshot(match.homeName, match.homeFlag, match.group || "", match.homeTeamId)
+        : home;
+    const matchAway =
+      match && canUseStaticAwayTeam && !isPlaceholderLabel(match.awayName)
+        ? makeSnapshot(match.awayName, match.awayFlag, match.group || "", match.awayTeamId)
+        : away;
+
+    const winner = match
+      ? outcomeWinner(
+          matchHome,
+          matchAway,
+          getScore(match, liveScores),
+          liveQualifiers?.[match.id] ?? match.predictedQualifiedTeamId
+        )
+      : null;
 
     const label = `${homeRef} vs ${awayRef}`;
 
@@ -269,6 +343,8 @@ function resolveSlotReference(
   ref: string,
   lookup: Map<string, TeamSnapshot | null>,
   standings: Map<string, GroupStanding[]>,
+  completedGroups: Set<string>,
+  allGroupsComplete: boolean,
   thirdRanking: GroupStanding[],
   usedThirds: Set<string>
 ) {
@@ -281,10 +357,17 @@ function resolveSlotReference(
   if (directGroup) {
     const position = Number(directGroup[1]);
     const group = directGroup[2];
+    if (!completedGroups.has(group)) {
+      return null;
+    }
     return standings.get(group)?.[position - 1] ?? null;
   }
 
   if (ref.startsWith("3")) {
+    if (!allGroupsComplete) {
+      return null;
+    }
+
     const allowedGroups = ref
       .slice(1)
       .split("")
@@ -361,7 +444,8 @@ export function buildThirdPlaceRanking(
 export function buildBracketTree(
   matches: TournamentMatchLike[],
   liveScores?: Record<string, ScoreLike>,
-  thirdGroupOrderOverride?: string[]
+  thirdGroupOrderOverride?: string[],
+  liveQualifiers?: Record<string, string>
 ) {
   const matchesByCode = new Map<string, TournamentMatchLike>();
   for (const match of matches) {
@@ -371,30 +455,75 @@ export function buildBracketTree(
   }
 
   const standings = resolveGroupStandings(matches, liveScores);
+  const { completedGroups, allGroupsComplete } = resolveGroupCompletion(matches, liveScores);
   const defaultThirdRanking = buildThirdRankingFromStandings(standings);
   const thirdRanking = applyThirdOrderOverride(defaultThirdRanking, thirdGroupOrderOverride);
 
   const usedThirds = new Set<string>();
   const lookup = new Map<string, TeamSnapshot | null>();
 
-  const roundOf32 = buildRoundSlots(ROUND_OF_32_SLOTS, lookup, matchesByCode, standings, thirdRanking, usedThirds, liveScores);
-  const roundOf16 = buildRoundSlots(ROUND_OF_16_SLOTS, lookup, matchesByCode, standings, thirdRanking, usedThirds, liveScores);
-  const quarterFinals = buildRoundSlots(QUARTER_FINAL_SLOTS, lookup, matchesByCode, standings, thirdRanking, usedThirds, liveScores);
-  const semiFinals = buildRoundSlots(SEMI_FINAL_SLOTS, lookup, matchesByCode, standings, thirdRanking, usedThirds, liveScores);
+  const roundOf32 = buildRoundSlots(
+    ROUND_OF_32_SLOTS,
+    lookup,
+    matchesByCode,
+    standings,
+    completedGroups,
+    allGroupsComplete,
+    thirdRanking,
+    usedThirds,
+    liveScores,
+    liveQualifiers
+  );
+  const roundOf16 = buildRoundSlots(
+    ROUND_OF_16_SLOTS,
+    lookup,
+    matchesByCode,
+    standings,
+    completedGroups,
+    allGroupsComplete,
+    thirdRanking,
+    usedThirds,
+    liveScores,
+    liveQualifiers
+  );
+  const quarterFinals = buildRoundSlots(
+    QUARTER_FINAL_SLOTS,
+    lookup,
+    matchesByCode,
+    standings,
+    completedGroups,
+    allGroupsComplete,
+    thirdRanking,
+    usedThirds,
+    liveScores,
+    liveQualifiers
+  );
+  const semiFinals = buildRoundSlots(
+    SEMI_FINAL_SLOTS,
+    lookup,
+    matchesByCode,
+    standings,
+    completedGroups,
+    allGroupsComplete,
+    thirdRanking,
+    usedThirds,
+    liveScores,
+    liveQualifiers
+  );
 
   const thirdPlaceMatch: BracketMatchView = {
     code: THIRD_PLACE_SLOT[0],
     label: `${THIRD_PLACE_SLOT[1]} vs ${THIRD_PLACE_SLOT[2]}`,
-    home: resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, thirdRanking, usedThirds),
-    away: resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, thirdRanking, usedThirds),
+    home: resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
+    away: resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     winner: null,
   };
 
   const finalMatch: BracketMatchView = {
     code: FINAL_SLOT[0],
     label: `${FINAL_SLOT[1]} vs ${FINAL_SLOT[2]}`,
-    home: resolveSlotReference(FINAL_SLOT[1], lookup, standings, thirdRanking, usedThirds),
-    away: resolveSlotReference(FINAL_SLOT[2], lookup, standings, thirdRanking, usedThirds),
+    home: resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
+    away: resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     winner: null,
   };
 

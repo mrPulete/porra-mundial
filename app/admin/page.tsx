@@ -162,43 +162,17 @@ export default async function AdminPage({
     }
   }
 
-  const viewUserId = params.viewUserId && leagueMembers.some((member) => member.id === params.viewUserId)
-    ? params.viewUserId
-    : leagueMembers[0]?.id;
+  const predictionCounts = await prisma.matchPrediction.groupBy({
+    by: ["userId"],
+    where: {
+      leagueId: activeLeagueId,
+    },
+    _count: {
+      _all: true,
+    },
+  });
 
-  const [selectedUserPredictions, selectedUserBonus] = viewUserId
-    ? await Promise.all([
-        prisma.matchPrediction.findMany({
-          where: {
-            leagueId: activeLeagueId,
-            userId: viewUserId,
-          },
-          include: {
-            match: {
-              include: {
-                homeTeam: { select: { name: true, flagEmoji: true } },
-                awayTeam: { select: { name: true, flagEmoji: true } },
-              },
-            },
-          },
-          orderBy: [{ match: { kickoffAt: "asc" } }, { match: { roundOrder: "asc" } }],
-        }),
-        prisma.bonusAnswer.findMany({
-          where: {
-            leagueId: activeLeagueId,
-            userId: viewUserId,
-          },
-          include: {
-            question: {
-              select: {
-                question: true,
-              },
-            },
-          },
-          orderBy: [{ question: { deadline: "asc" } }, { question: { question: "asc" } }],
-        }),
-      ])
-    : [[], []];
+  const predictionCountByUser = new Map(predictionCounts.map((row) => [row.userId, row._count._all]));
 
   const adminMatches = matches.map((match) => ({
     ...resolveMatchVenue(match.roundOrder, match.excelCode),
@@ -207,6 +181,8 @@ export default async function AdminPage({
     code: match.excelCode,
     homeName: match.homeTeam.name,
     awayName: match.awayTeam.name,
+    homeTeamId: match.homeTeam.id,
+    awayTeamId: match.awayTeam.id,
     homeScore: match.homeScore,
     awayScore: match.awayScore,
     isFinished: match.isFinished,
@@ -254,6 +230,8 @@ export default async function AdminPage({
         activeLeagueId={activeLeagueId}
         userSubmissionSummaries={leagueMembers.map((member) => {
           const latest = latestSubmissionByUser.get(member.id);
+          const savedPredictions = predictionCountByUser.get(member.id) ?? 0;
+          const remainingPredictions = Math.max(0, matches.length - savedPredictions);
           return {
             userId: member.id,
             userName: member.name,
@@ -261,30 +239,11 @@ export default async function AdminPage({
             isOwner: member.isOwner,
             latestOfficialVersion: latest?.version ?? null,
             latestOfficialSubmittedAt: latest?.submittedAt ?? null,
+            savedPredictions,
+            remainingPredictions,
+            hasOfficialSubmission: Boolean(latest),
           };
         })}
-        selectedViewUserId={viewUserId ?? null}
-        selectedUserPredictions={selectedUserPredictions.map((prediction) => ({
-          matchId: prediction.matchId,
-          stage: prediction.match.stage,
-          kickoffAt: prediction.match.kickoffAt.toISOString(),
-          homeName: prediction.match.homeTeam.name,
-          homeFlag: prediction.match.homeTeam.flagEmoji,
-          awayName: prediction.match.awayTeam.name,
-          awayFlag: prediction.match.awayTeam.flagEmoji,
-          predictedHome: prediction.predictedHome,
-          predictedAway: prediction.predictedAway,
-          predictedQualifiedTeamId: prediction.predictedQualifiedTeamId,
-          pointsAwarded: prediction.pointsAwarded,
-          penaltyPoints: prediction.penaltyPoints,
-        }))}
-        selectedUserBonus={selectedUserBonus.map((row) => ({
-          questionId: row.questionId,
-          question: row.question.question,
-          answer: row.answer,
-          pointsAwarded: row.pointsAwarded,
-          penaltyPoints: row.penaltyPoints,
-        }))}
         demoToolsEnabled={session.user.role === "ADMIN" || process.env.ENABLE_DEMO_TOOLS === "true"}
       />
     </main>

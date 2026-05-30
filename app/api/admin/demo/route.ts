@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   try {
     if (action === "GENERATE_DEMO_USERS") {
-      const result = await generateDemoUsers(userCount ?? 24);
+      const result = await generateDemoUsers(userCount ?? 4);
 
       let assignedToLeague = 0;
       if (leagueId) {
