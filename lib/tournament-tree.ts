@@ -148,10 +148,6 @@ function isPlaceholderLabel(label: string) {
   return /^W\d+$/.test(label) || /^L\d+$/.test(label) || /^[123][A-L]+$/.test(label) || label.startsWith("Ganador ");
 }
 
-function isWinnerOrLoserRef(ref: string) {
-  return /^W\d+$/.test(ref) || /^L\d+$/.test(ref);
-}
-
 function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
   const rows = new Map<string, Map<string, GroupStanding>>();
 
@@ -304,17 +300,19 @@ function buildRoundSlots(
     const home = resolveSlotReference(homeRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
     const away = resolveSlotReference(awayRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
 
-    const canUseStaticHomeTeam = !isWinnerOrLoserRef(homeRef);
-    const canUseStaticAwayTeam = !isWinnerOrLoserRef(awayRef);
-
-    const matchHome =
-      match && canUseStaticHomeTeam && !isPlaceholderLabel(match.homeName)
+    // Prefer dynamic resolution (group standings / third order / previous winners).
+    // If not available, fall back to static DB teams so admin bracket can still render advanced rounds.
+    const staticHome =
+      match && !isPlaceholderLabel(match.homeName)
         ? makeSnapshot(match.homeName, match.homeFlag, match.group || "", match.homeTeamId)
-        : home;
-    const matchAway =
-      match && canUseStaticAwayTeam && !isPlaceholderLabel(match.awayName)
+        : null;
+    const staticAway =
+      match && !isPlaceholderLabel(match.awayName)
         ? makeSnapshot(match.awayName, match.awayFlag, match.group || "", match.awayTeamId)
-        : away;
+        : null;
+
+    const matchHome = home ?? staticHome;
+    const matchAway = away ?? staticAway;
 
     const winner = match
       ? outcomeWinner(
