@@ -20,9 +20,6 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@faker-js/faker": "^10.4.0",
     "@hookform/resolvers": "^5.2.2",
