@@ -23,9 +23,12 @@ export const metadata: Metadata = {
   title: "Porra Mundial",
   description: "World Cup pool app with bracket, rankings, leagues and admin panel",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
     shortcut: "/favicon.ico",
-    apple: "/icon.svg",
+    apple: "/favicon.ico",
   },
 };
 
