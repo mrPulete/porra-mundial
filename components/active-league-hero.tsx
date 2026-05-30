@@ -17,7 +17,7 @@ export function ActiveLeagueHero({ name, code, description }: ActiveLeagueHeroPr
         </div>
         <div className="rounded-2xl border border-emerald-600/20 bg-white/80 px-4 py-3 text-right dark:border-emerald-300/20 dark:bg-black/20">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
-            Codigo para compartir
+            Código para compartir
           </p>
           <p className="mt-1 font-mono text-2xl font-black tracking-[0.2em] text-emerald-700 dark:text-emerald-300">
             {code}

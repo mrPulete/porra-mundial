@@ -89,8 +89,8 @@ type QuestionOption = {
 
 const MAIN_SECTIONS = [
   { value: "GROUPS", label: "Grupos" },
-  { value: "THIRDS", label: "Thirds" },
-  { value: "KNOCKOUT", label: "Knockout" },
+  { value: "THIRDS", label: "Mejores terceros" },
+  { value: "KNOCKOUT", label: "Eliminatorias" },
   { value: "QUESTIONS", label: "Preguntas" },
 ] as const;
 
@@ -840,10 +840,10 @@ export function UnifiedPredictionsBoard({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-bold dark:border-white/10 dark:bg-neutral-950">
             {submissionWindowStatus === "OPEN"
-              ? "🟢 OPEN"
+              ? "🟢 ABIERTA"
               : submissionWindowStatus === "REOPENED"
-                ? "🟠 REOPENED"
-                : "🔴 LOCKED"}
+                ? "🟠 REABIERTA"
+                : "🔴 CERRADA"}
           </span>
           {lastOfficialSubmittedAt && (
             <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -864,13 +864,13 @@ export function UnifiedPredictionsBoard({
 
         {lastOfficialSubmittedAt && (
           <p className="mb-3 text-xs text-neutral-600 dark:text-neutral-300">
-            Ultimo envio oficial: {new Date(lastOfficialSubmittedAt).toLocaleDateString("es-ES")} {new Date(lastOfficialSubmittedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+            Último envío oficial: {new Date(lastOfficialSubmittedAt).toLocaleDateString("es-ES")} {new Date(lastOfficialSubmittedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
           </p>
         )}
 
         {isLocked && (
           <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-50/80 p-3 text-sm text-red-900 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-100">
-            La porra esta cerrada: no se pueden tocar resultados ni enviar cambios.
+            La porra está cerrada: no se pueden tocar resultados ni enviar cambios.
           </div>
         )}
 
@@ -912,13 +912,13 @@ export function UnifiedPredictionsBoard({
 
         {!readOnly && activeSection === "KNOCKOUT" && !canEditKnockoutStage && (
           <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100">
-            Los cruces ya estan cerrados. Solo se podian cambiar hasta el dia antes del inicio de las eliminatorias.
+            Los cruces ya están cerrados. Solo se podían cambiar hasta el día antes del inicio de las eliminatorias.
           </div>
         )}
 
         {!readOnly && activeSection === "KNOCKOUT" && canEditKnockoutStage && editPolicy?.knockoutEditsHavePenalty && (
           <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100">
-            Cambiar goles de cruces durante la fase de grupos aplica una penalizacion de -1 punto por cambio.
+            Cambiar goles de cruces durante la fase de grupos aplica una penalización de -1 punto por cambio.
           </div>
         )}
 
@@ -946,7 +946,7 @@ export function UnifiedPredictionsBoard({
               <div>
                 <h4 className="text-sm font-black text-emerald-900 dark:text-emerald-100">Clasificación del Grupo {activeGroup}</h4>
                 <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
-                  {readOnly ? "Se recalcula automaticamente con los resultados oficiales." : "Se recalcula en vivo con los marcadores que vas metiendo."}
+                  {readOnly ? "Se recalcula automáticamente con los resultados oficiales." : "Se recalcula en vivo con los marcadores que vas metiendo."}
                 </p>
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700 shadow-sm dark:bg-neutral-950 dark:text-emerald-300">
@@ -1012,7 +1012,7 @@ export function UnifiedPredictionsBoard({
             </div>
 
             {thirdRanking.length === 0 ? (
-              <p className="text-sm text-neutral-500">Aun no hay terceros calculables. Mete algunos marcadores de grupos primero.</p>
+              <p className="text-sm text-neutral-500">Aún no hay terceros calculables. Mete algunos marcadores de grupos primero.</p>
             ) : (
               <div className="space-y-2">
                 {thirdRanking.map((team, index) => (
@@ -1065,7 +1065,7 @@ export function UnifiedPredictionsBoard({
               </p>
             </div>
             {bonusQuestions.length === 0 ? (
-              <p className="text-sm text-neutral-500">Todavia no hay preguntas cargadas.</p>
+              <p className="text-sm text-neutral-500">Todavía no hay preguntas cargadas.</p>
             ) : (
               bonusQuestions.map((question) => {
                 const options = normalizeQuestionOptions(question.options);
@@ -1371,13 +1371,13 @@ export function UnifiedPredictionsBoard({
 
           {!isLocked && isReopened && hasPendingOfficialChanges && (
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-              Al enviar oficialmente en modo REOPENED se aplicara una penalizacion estimada de -{potentialPenaltyPoints} puntos.
+              Al enviar oficialmente en modo reabierto se aplicará una penalización estimada de -{potentialPenaltyPoints} puntos.
             </p>
           )}
 
           {!isLocked && !isReopened && (
             <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-              En OPEN puedes reenviar oficialmente sin penalizacion.
+              En modo abierto puedes reenviar oficialmente sin penalización.
             </p>
           )}
         </div>
@@ -1501,7 +1501,7 @@ export function UnifiedPredictionsBoard({
       {!readOnly && officialConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-black/10 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-neutral-900">
-            <h3 className="text-base font-black">Confirmar envio oficial</h3>
+            <h3 className="text-base font-black">Confirmar envío oficial</h3>
             <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
               Has realizado {pendingOfficialChangesCount} cambios.
             </p>

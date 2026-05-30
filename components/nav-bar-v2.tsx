@@ -47,7 +47,7 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
             href="/predictions"
             className={navLinkClass("/predictions")}
           >
-            Pronosticos
+            Pronósticos
           </Link>
           <Link
             href="/bracket"
@@ -59,7 +59,7 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
             href="/rankings"
             className={navLinkClass("/rankings")}
           >
-            Ranking
+            Clasificación
           </Link>
           {isAdmin && (
             <Link
@@ -91,7 +91,7 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
                   {userEmail}
                 </p>
                 <p className="mt-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-neutral-500 dark:text-neutral-400">
-                  Perfil (proximamente)
+                  Perfil (próximamente)
                 </p>
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
@@ -154,7 +154,7 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
               onClick={() => setMobileMenuOpen(false)}
               className={`block ${navLinkClass("/predictions")} font-semibold`}
             >
-              Pronosticos
+              Pronósticos
             </Link>
             <Link
               href="/bracket"
@@ -168,7 +168,7 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
               onClick={() => setMobileMenuOpen(false)}
               className={`block ${navLinkClass("/rankings")} font-semibold`}
             >
-              Ranking
+              Clasificación
             </Link>
             {isAdmin && (
               <Link

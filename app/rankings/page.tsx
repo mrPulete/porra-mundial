@@ -11,8 +11,8 @@ export default async function RankingsPage() {
   if (!session?.user?.id) {
     return (
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-8">
-        <h1 className="text-3xl font-black">Ranking</h1>
-        <p className="text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesion para ver el ranking de tu liga activa.</p>
+        <h1 className="text-3xl font-black">Clasificación</h1>
+        <p className="text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesión para ver la clasificación de tu liga activa.</p>
         <Link href="/login" className="inline-block rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
           Entrar
         </Link>
@@ -25,7 +25,7 @@ export default async function RankingsPage() {
   if (!leagueContext.activeLeagueId) {
     return (
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-8">
-        <h1 className="text-3xl font-black">Ranking</h1>
+        <h1 className="text-3xl font-black">Clasificación</h1>
         <p className="text-neutral-600 dark:text-neutral-300">No tienes ninguna liga activa seleccionada.</p>
       </main>
     );
@@ -112,7 +112,7 @@ export default async function RankingsPage() {
   return (
     <main className="mx-auto w-full max-w-6xl gap-4 px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-black">Ranking</h1>
+        <h1 className="text-3xl font-black">Clasificación</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
           {league ? `Puntuaciones reales de la liga activa: ${league.name} (${league.code}).` : "Puntuaciones reales de tu liga activa."}
         </p>
@@ -121,10 +121,10 @@ export default async function RankingsPage() {
         <ActiveLeagueHero
           name={league.name}
           code={league.code}
-          description="Este es el código de tu liga activa. Compártelo para que tus amigos puedan unirse y aparecer en este ranking."
+          description="Este es el código de tu liga activa. Compártelo para que tus amigos puedan unirse y aparecer en esta clasificación."
         />
       )}
-      <RankingsTable title={league ? `Liga ${league.name}` : "Ranking de Liga"} data={leagueData} />
+      <RankingsTable title={league ? `Liga ${league.name}` : "Clasificación de liga"} data={leagueData} />
     </main>
   );
 }

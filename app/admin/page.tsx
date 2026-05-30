@@ -17,7 +17,7 @@ export default async function AdminPage({
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-12">
         <h1 className="text-2xl font-black">Acceso restringido</h1>
-        <p className="mt-2 text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesion para gestionar tu liga.</p>
+        <p className="mt-2 text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesión para gestionar tu liga.</p>
       </main>
     );
   }

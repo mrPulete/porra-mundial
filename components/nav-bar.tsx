@@ -16,9 +16,9 @@ export function NavBar() {
           PORRA MUNDIAL
         </Link>
         <nav className="flex items-center gap-4 text-sm font-semibold">
-          <Link href="/predictions">Pronosticos</Link>
+          <Link href="/predictions">Pronósticos</Link>
           <Link href="/bracket">Cruces</Link>
-          <Link href="/rankings">Rankings</Link>
+          <Link href="/rankings">Clasificación</Link>
           <Link href="/leagues">Ligas</Link>
           {data?.user?.role === "ADMIN" && <Link href="/admin">Admin</Link>}
           <button

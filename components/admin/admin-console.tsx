@@ -345,7 +345,7 @@ export function AdminConsole({
   };
 
   const resetPorra = async () => {
-    const ok = window.confirm("Esto borrara usuarios, ligas, resultados y pronosticos. Se conservaran solo los admins. ¿Continuar?");
+    const ok = window.confirm("Esto borrará usuarios, ligas, resultados y pronósticos. Se conservarán solo los admins. ¿Continuar?");
     if (!ok) {
       return;
     }
@@ -376,7 +376,7 @@ export function AdminConsole({
   return (
     <div className="space-y-4">
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-        <h2 className="text-lg font-black">Liga de configuracion</h2>
+        <h2 className="text-lg font-black">Liga de configuración</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {leagues.map((league) => (
             <a
@@ -395,7 +395,7 @@ export function AdminConsole({
       </section>
 
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-        <h2 className="text-lg font-black">2) Configuracion de puntuaciones y penalizaciones</h2>
+        <h2 className="text-lg font-black">2) Configuración de puntuaciones y penalizaciones</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
           Todos los puntos se leen de base de datos y son independientes por liga.
         </p>
@@ -503,7 +503,7 @@ export function AdminConsole({
         <div className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50">
           <p className="text-xs font-black uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Bloquear / desbloquear desde ronda</p>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Cada boton aplica desde esa fase en adelante. Las fases anteriores no se tocan.
+            Cada botón aplica desde esa fase en adelante. Las fases anteriores no se tocan.
           </p>
           <p className="mt-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
             Estado fases: {lockSummary.locked} bloqueadas · {lockSummary.open} abiertas · {lockSummary.mixed} mixtas
@@ -543,7 +543,7 @@ export function AdminConsole({
       <section className="rounded-3xl border border-red-500/30 bg-red-50/70 p-4 dark:border-red-400/30 dark:bg-red-500/10">
         <h2 className="text-lg font-black text-red-800 dark:text-red-300">8) Mantenimiento</h2>
         <p className="mt-1 text-sm text-red-700/90 dark:text-red-200">
-          Reinicia completamente la porra: elimina usuarios no admin, ligas, resultados, pronosticos e historial.
+          Reinicia completamente la porra: elimina usuarios no admin, ligas, resultados, pronósticos e historial.
         </p>
         <button
           onClick={resetPorra}
@@ -568,7 +568,7 @@ export function AdminConsole({
       </section>
 
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-        <h2 className="text-lg font-black">5) Historial de cambios (auditoria)</h2>
+        <h2 className="text-lg font-black">5) Historial de cambios (auditoría)</h2>
         {history.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-500">Sin movimientos registrados en esta liga.</p>
         ) : (
@@ -580,7 +580,7 @@ export function AdminConsole({
                   <th className="px-2 py-1">Usuario</th>
                   <th className="px-2 py-1">Tipo</th>
                   <th className="px-2 py-1">Elemento</th>
-                  <th className="px-2 py-1 text-right">Penalizacion</th>
+                  <th className="px-2 py-1 text-right">Penalización</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,7 +602,7 @@ export function AdminConsole({
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
         <h2 className="text-lg font-black">6) Predicciones oficiales por jugador</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Abre la pantalla de cada jugador en una pestana nueva. Aqui ves el estado de progreso de su porra.
+          Abre la pantalla de cada jugador en una pestaña nueva. Aquí ves el estado de progreso de su porra.
         </p>
 
         {userSubmissionSummaries.length === 0 ? (
@@ -613,17 +613,17 @@ export function AdminConsole({
               <article key={user.userId} className="rounded-xl border border-black/10 bg-neutral-50 p-3 text-sm dark:border-white/10 dark:bg-neutral-800/40">
                 <p className="font-black">
                   {user.userName}
-                  {user.isOwner ? " (Owner)" : ""}
+                  {user.isOwner ? " (Creador)" : ""}
                 </p>
                 <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{user.userEmail}</p>
                 <div className="mt-2 space-y-0.5 text-xs text-neutral-700 dark:text-neutral-200">
-                  <p>Pronosticos guardados: {user.savedPredictions}</p>
+                  <p>Pronósticos guardados: {user.savedPredictions}</p>
                   <p>Pendientes: {user.remainingPredictions}</p>
-                  <p>Estado: {user.hasOfficialSubmission ? `Submiteado (v${user.latestOfficialVersion})` : "Sin submit oficial"}</p>
+                  <p>Estado: {user.hasOfficialSubmission ? `Enviado oficialmente (v${user.latestOfficialVersion})` : "Sin envío oficial"}</p>
                 </div>
                 {user.latestOfficialSubmittedAt && (
                   <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    Ultimo envio: {new Date(user.latestOfficialSubmittedAt).toLocaleString("es-ES")}
+                    Último envío: {new Date(user.latestOfficialSubmittedAt).toLocaleString("es-ES")}
                   </p>
                 )}
                 <a
@@ -642,9 +642,9 @@ export function AdminConsole({
 
       {demoToolsEnabled && (
         <section className="rounded-3xl border border-dashed border-amber-500/40 bg-amber-50/70 p-4 dark:border-amber-400/30 dark:bg-amber-500/10">
-          <h2 className="text-lg font-black">7) Demo Data y Simulacion</h2>
+          <h2 className="text-lg font-black">7) Datos de demo y simulación</h2>
           <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-200">
-            Herramientas solo para desarrollo y testing. Simulan usuarios, ligas, pronosticos y avance del torneo con datos plausibles.
+            Herramientas solo para desarrollo y testing. Simulan usuarios, ligas, pronósticos y avance del torneo con datos plausibles.
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -671,7 +671,7 @@ export function AdminConsole({
               />
             </label>
             <label className="text-sm font-semibold">
-              Membresias maximas
+              Membresías máximas
               <input
                 type="number"
                 min={1}
@@ -689,49 +689,49 @@ export function AdminConsole({
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-black"
             >
-              {runningDemoAction === "GENERATE_DEMO_USERS" ? "Generando..." : "Generate Demo Users"}
+              {runningDemoAction === "GENERATE_DEMO_USERS" ? "Generando..." : "Generar usuarios demo"}
             </button>
             <button
               onClick={() => triggerDemoAction("GENERATE_DEMO_LEAGUES")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-black"
             >
-              {runningDemoAction === "GENERATE_DEMO_LEAGUES" ? "Generando..." : "Generate Demo Leagues"}
+              {runningDemoAction === "GENERATE_DEMO_LEAGUES" ? "Generando..." : "Generar ligas demo"}
             </button>
             <button
               onClick={() => triggerDemoAction("GENERATE_PREDICTIONS")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
-              {runningDemoAction === "GENERATE_PREDICTIONS" ? "Generando..." : "Generate Predictions"}
+              {runningDemoAction === "GENERATE_PREDICTIONS" ? "Generando..." : "Generar pronósticos"}
             </button>
             <button
               onClick={() => triggerDemoAction("SIMULATE_MATCHDAY")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
-              {runningDemoAction === "SIMULATE_MATCHDAY" ? "Simulando..." : "Simulate Matchday"}
+              {runningDemoAction === "SIMULATE_MATCHDAY" ? "Simulando..." : "Simular jornada"}
             </button>
             <button
               onClick={() => triggerDemoAction("SIMULATE_ROUND")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
-              {runningDemoAction === "SIMULATE_ROUND" ? "Simulando..." : "Simulate Round"}
+              {runningDemoAction === "SIMULATE_ROUND" ? "Simulando..." : "Simular ronda"}
             </button>
             <button
               onClick={() => triggerDemoAction("SIMULATE_TOURNAMENT")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
-              {runningDemoAction === "SIMULATE_TOURNAMENT" ? "Simulando..." : "Simulate Tournament"}
+              {runningDemoAction === "SIMULATE_TOURNAMENT" ? "Simulando..." : "Simular torneo"}
             </button>
             <button
               onClick={() => triggerDemoAction("RESET_TOURNAMENT")}
               disabled={runningDemoAction !== null}
               className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
-              {runningDemoAction === "RESET_TOURNAMENT" ? "Reseteando..." : "Reset Tournament"}
+              {runningDemoAction === "RESET_TOURNAMENT" ? "Reseteando..." : "Reiniciar torneo"}
             </button>
           </div>
         </section>

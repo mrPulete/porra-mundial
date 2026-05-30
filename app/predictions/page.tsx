@@ -30,7 +30,7 @@ export default async function PredictionsPage() {
           <p className="text-sm font-black uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Cuenta Admin</p>
           <h2 className="mt-1 text-xl font-black">El admin no participa en la porra</h2>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-            Esta cuenta esta reservada para gestion. Usa la vista de Admin para revisar usuarios, resultados y bloqueos por ronda.
+            Esta cuenta está reservada para gestión. Usa la vista de Admin para revisar usuarios, resultados y bloqueos por ronda.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/admin" className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
@@ -53,10 +53,10 @@ export default async function PredictionsPage() {
         <h1 className="text-3xl font-black">Pronósticos</h1>
         <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 dark:border-emerald-800/60 dark:bg-emerald-900/20">
           <h2 className="text-2xl font-black">Bienvenido a la Porra del Mundial</h2>
-          <p className="mt-2 text-neutral-700 dark:text-neutral-200">Todavia no estas en una liga. Te guiamos para arrancar sin perderte:</p>
+          <p className="mt-2 text-neutral-700 dark:text-neutral-200">Todavía no estás en una liga. Te guiamos para arrancar sin perderte:</p>
           <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-200">
-            <li>Unete o crea una liga</li>
-            <li>Completa tus pronosticos de fase de grupos y eliminatorias</li>
+            <li>Únete o crea una liga</li>
+            <li>Completa tus pronósticos de fase de grupos y eliminatorias</li>
             <li>Compite en el ranking con tu liga</li>
           </ol>
           <div className="mt-5 flex flex-wrap gap-3">
@@ -186,17 +186,17 @@ export default async function PredictionsPage() {
           <p className="text-sm font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">Primer paso recomendado</p>
           <h2 className="mt-1 text-xl font-black">Empieza por tus Pronósticos</h2>
           <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
-            Acabas de entrar a una liga. Completa tus predicciones para aparecer en el ranking y evitar quedarte atras.
+            Acabas de entrar a una liga. Completa tus predicciones para aparecer en la clasificación y evitar quedarte atrás.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <a href="#predictions-board" className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
-              Start Predictions
+              Empezar pronósticos
             </a>
             <Link href="/rankings" className="rounded-xl bg-neutral-900 px-4 py-2 font-bold text-white dark:bg-neutral-100 dark:text-black">
-              View League Ranking
+              Ver clasificación de liga
             </Link>
-            <Link href="/matches" className="rounded-xl border border-black/10 bg-white px-4 py-2 font-bold dark:border-white/10 dark:bg-neutral-900">
-              Explore Matches
+            <Link href="/bracket" className="rounded-xl border border-black/10 bg-white px-4 py-2 font-bold dark:border-white/10 dark:bg-neutral-900">
+              Ver cruces
             </Link>
           </div>
         </section>

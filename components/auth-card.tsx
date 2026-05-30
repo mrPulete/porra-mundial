@@ -54,7 +54,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
           });
 
           if (loginRes?.error) {
-            setMessage("Cuenta creada, pero no se pudo iniciar sesion automaticamente. Inicia sesion manualmente.");
+            setMessage("Cuenta creada, pero no se pudo iniciar sesión automáticamente. Inicia sesión manualmente.");
             router.push("/login");
           } else {
             router.push("/predictions");
@@ -83,7 +83,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
   return (
     <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-3xl border border-black/10 bg-white/80 p-6 shadow-xl dark:border-white/15 dark:bg-neutral-900/70">
       <h1 className="text-2xl font-black">
-        {mode === "login" ? "Iniciar sesion" : mode === "register" ? "Crear cuenta" : "Recuperar password"}
+        {mode === "login" ? "Iniciar sesión" : mode === "register" ? "Crear cuenta" : "Recuperar contraseña"}
       </h1>
       {mode === "register" && (
         <input
@@ -105,7 +105,7 @@ export function AuthCard({ mode }: { mode: Mode }) {
       {mode !== "reset" && (
         <input
           type="password"
-          placeholder="Password"
+          placeholder="Contraseña"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-xl border px-3 py-2"

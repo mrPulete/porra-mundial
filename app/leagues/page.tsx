@@ -10,9 +10,9 @@ export default async function LeaguesPage() {
     return (
       <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8">
         <h1 className="text-3xl font-black">Ligas</h1>
-        <p className="text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesion para crear y unirte a ligas.</p>
+        <p className="text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesión para crear y unirte a ligas.</p>
         <Link href="/login" className="inline-block rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
-          Ir a login
+          Ir a iniciar sesión
         </Link>
       </main>
     );

@@ -21,7 +21,7 @@ const bodyFont = Sora({
 
 export const metadata: Metadata = {
   title: "Porra Mundial",
-  description: "World Cup pool app with bracket, rankings, leagues and admin panel",
+  description: "App de porra del Mundial con cruces, clasificación, ligas y panel de administración",
   icons: {
     icon: [
       { url: "/favicon.ico" },

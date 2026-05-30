@@ -45,7 +45,7 @@ export function LeaguesManager({
       if (!res.ok) {
         setMessage(data.error || "No se pudo crear la liga");
       } else {
-        setMessage(`Liga creada: codigo ${data.league.code}`);
+        setMessage(`Liga creada: código ${data.league.code}`);
         setNewLeagueName("");
         refreshLeagues();
       }
@@ -58,7 +58,7 @@ export function LeaguesManager({
 
   const joinLeague = async () => {
     if (!joinCode.trim()) {
-      setMessage("Escribe un codigo");
+      setMessage("Escribe un código");
       return;
     }
 
@@ -92,7 +92,7 @@ export function LeaguesManager({
           <section className="rounded-3xl border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-neutral-900/70">
             <h2 className="font-black">Crear liga</h2>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-              Crea una liga privada y comparte el codigo con tus amigos.
+              Crea una liga privada y comparte el código con tus amigos.
             </p>
             <input
               placeholder="Nombre de liga"
@@ -110,9 +110,9 @@ export function LeaguesManager({
           </section>
         )}
         <section className="rounded-3xl border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-neutral-900/70">
-          <h2 className="font-black">Unirte por codigo</h2>
+          <h2 className="font-black">Unirte por código</h2>
           <input
-            placeholder="Codigo de liga"
+            placeholder="Código de liga"
             className="mt-3 w-full rounded-xl border px-3 py-2 uppercase"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value)}
@@ -132,14 +132,14 @@ export function LeaguesManager({
       <section className="rounded-3xl border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-neutral-900/70">
         <h2 className="font-black">Mis ligas</h2>
         {leagues.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Aun no perteneces a ninguna liga.</p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Aún no perteneces a ninguna liga.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {leagues.map((league) => (
               <li key={league.id} className="rounded-xl border border-black/10 p-3 dark:border-white/10">
                 <p className="font-bold">{league.name}</p>
                 <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                  Codigo: {league.code} · Owner: {league.ownerName} · Miembros: {league.membersCount}
+                  Código: {league.code} · Creador: {league.ownerName} · Miembros: {league.membersCount}
                 </p>
               </li>
             ))}

@@ -43,7 +43,7 @@ export default async function BracketPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8">
-      <h1 className="text-3xl font-black">Knockout Bracket</h1>
+      <h1 className="text-3xl font-black">Cuadro de eliminatorias</h1>
       <p className="text-neutral-600 dark:text-neutral-300">Vista visual de cruces hasta la final, sin marcadores.</p>
       <BracketBoard matches={bracketMatches} visualOnly />
     </main>

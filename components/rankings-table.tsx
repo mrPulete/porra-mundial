@@ -11,7 +11,7 @@ export function RankingsTable({ title, data }: { title: string; data: RankEntry[
     <section className="rounded-3xl border border-black/10 bg-white/80 p-4 shadow-lg dark:border-white/10 dark:bg-neutral-900/70">
       <h2 className="mb-3 text-lg font-black">{title}</h2>
       {data.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">Aun no hay puntuaciones para esta liga.</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">Aún no hay puntuaciones para esta liga.</p>
       ) : (
         <div className="overflow-auto">
           <table className="w-full text-sm">
@@ -21,7 +21,7 @@ export function RankingsTable({ title, data }: { title: string; data: RankEntry[
                 <th>Usuario</th>
                 <th>Puntos</th>
                 <th>Exactos</th>
-                <th>Accuracy</th>
+                <th>Precisión</th>
               </tr>
             </thead>
             <tbody>
