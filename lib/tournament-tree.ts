@@ -288,9 +288,13 @@ function resolveGroupCompletion(matches: TournamentMatchLike[], liveScores?: Rec
  * - "1A" → "1° Grupo A"
  * - "2B" → "2° Grupo B"
  * - "W73" → "Ganador W73"
- * - "3ABCDF" con team.group="C" → "3° Mejor (C)"
+ * - "3ABCDF" con team.group="C" → "4° mejor tercero"
  */
-function getSlotReferenceLabel(ref: string, resolvedTeam: TeamSnapshot | null): string {
+function getSlotReferenceLabel(
+  ref: string,
+  resolvedTeam: TeamSnapshot | null,
+  thirdRanking: GroupStanding[] = []
+): string {
   // Referencias de grupo: 1A, 2B, etc.
   const groupMatch = ref.match(/^([12])([A-L])$/);
   if (groupMatch) {
@@ -302,6 +306,12 @@ function getSlotReferenceLabel(ref: string, resolvedTeam: TeamSnapshot | null): 
   // Referencias de terceros: 3ABCDF, etc.
   if (ref.startsWith("3")) {
     if (resolvedTeam) {
+      // Buscar la posición del tercero en la ranking
+      const thirdIndex = thirdRanking.findIndex((t) => t.group === resolvedTeam.group);
+      if (thirdIndex !== -1) {
+        const position = thirdIndex + 1; // Convertir índice a posición (1-based)
+        return `${position}° mejor tercero`;
+      }
       return `3° Mejor (${resolvedTeam.group})`;
     }
     return `3° Mejor`;
@@ -356,8 +366,8 @@ function buildRoundSlots(
         )
       : null;
 
-    const homeLabel = getSlotReferenceLabel(homeRef, matchHome);
-    const awayLabel = getSlotReferenceLabel(awayRef, matchAway);
+    const homeLabel = getSlotReferenceLabel(homeRef, matchHome, thirdRanking);
+    const awayLabel = getSlotReferenceLabel(awayRef, matchAway, thirdRanking);
     const label = `${homeLabel} vs ${awayLabel}`;
 
     lookup.set(code, winner ?? null);
@@ -546,7 +556,7 @@ export function buildBracketTree(
 
   const thirdPlaceMatch: BracketMatchView = {
     code: THIRD_PLACE_SLOT[0],
-    label: `${getSlotReferenceLabel(THIRD_PLACE_SLOT[1], resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds))} vs ${getSlotReferenceLabel(THIRD_PLACE_SLOT[2], resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds))}`,
+    label: `${getSlotReferenceLabel(THIRD_PLACE_SLOT[1], resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)} vs ${getSlotReferenceLabel(THIRD_PLACE_SLOT[2], resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)}`,
     home: resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     away: resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     winner: null,
@@ -554,7 +564,7 @@ export function buildBracketTree(
 
   const finalMatch: BracketMatchView = {
     code: FINAL_SLOT[0],
-    label: `${getSlotReferenceLabel(FINAL_SLOT[1], resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds))} vs ${getSlotReferenceLabel(FINAL_SLOT[2], resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds))}`,
+    label: `${getSlotReferenceLabel(FINAL_SLOT[1], resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)} vs ${getSlotReferenceLabel(FINAL_SLOT[2], resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)}`,
     home: resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     away: resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
     winner: null,
