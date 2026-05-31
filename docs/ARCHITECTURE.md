@@ -36,24 +36,20 @@ app/                          → Rutas (App Router)
   rankings/page.tsx           → Tabla de rankings
   leagues/page.tsx            → Gestión de ligas
   admin/page.tsx              → Panel de admin
-  api/                        → Scaffold de endpoints (directorios sin route handlers en esta rama)
-    auth/[...nextauth]/       → NextAuth (pendiente de handler)
-    register/                 → Registro (pendiente de handler)
-    reset-password/           → Reset (pendiente de handler)
-    predictions/              → Predicciones (pendiente de handler)
-      template-download/      → Descarga template (pendiente)
-      template-upload/        → Upload template (pendiente)
-    bonus-answers/            → Bonus (pendiente de handler)
-    leagues/                  → Crear liga (pendiente de handler)
-      join/                   → Unirse (pendiente de handler)
+  api/                        → Endpoints backend activos
+    auth/[...nextauth]/       → Auth/session
+    predictions/              → Guardado de predicciones
+    bonus-answers/            → Guardado de bonus
+    teams/[teamCode]/football-data → Cache/consulta de datos futbol API
     admin/
-      results/                → Resultados (pendiente de handler)
-      import-excel/           → Importar Excel (pendiente de handler)
-      recalculate/            → Recalcular (pendiente de handler)
-      scoring/                → Config scoring (pendiente de handler)
-      demo/                   → Demo tools (pendiente de handler)
-    seed/                     → Seed datos (pendiente de handler)
-    templates/                → Templates admin (pendiente de handlers)
+      results/                → Carga de resultados oficiales
+      recalculate/            → Recalculo de ranking/puntos
+      lock-round/             → Bloqueo/desbloqueo por ronda
+      demo/                   → Herramientas demo
+      reset-porra/            → Reinicio completo de porra
+      users/delete/           → Borrado de usuario de liga
+      users/reset/            → Reset de predicciones por usuario
+      users/reset-results/    → Reset de resultados/predicciones de jugadores en liga
 
 components/                   → Componentes React
   nav-bar-v2.tsx              → Navegación principal
@@ -113,16 +109,15 @@ scripts/                      → Scripts CLI
 ```
 Usuario → Page (Server Component) → lee session + DB
   → Client Component
-     ↳ flujo objetivo: llama API Route (POST)
-     ↳ estado actual: handlers pendientes en app/api
+    ↳ llama API Route (POST/GET)
   → Prisma → PostgreSQL
 ```
 
 ### Predicciones
 1. Usuario abre `/predictions` → server lee partidos + predicciones del usuario por liga activa.
 2. La UI cliente dispara `fetch` a `/api/predictions` y `/api/bonus-answers`.
-3. En esta rama, esos route handlers no están implementados en `app/api`, por lo que el flujo de persistencia vía API queda pendiente.
-4. La lógica de scoring/ranking sí existe en `lib/` y DB schema, lista para conectarse al backend de rutas.
+3. Los handlers validan payload, persisten en DB y recalculan ranking según corresponda.
+4. Si hay empate en KO, se persiste `predictedQualifiedTeamId` y se usa para resolver cruces dinámicos.
 
 ### Liga activa
 - Cookie `activeLeagueId` determina qué liga ve el usuario
@@ -146,13 +141,22 @@ UserRole, LeagueRole, MatchStage, RankingScope, ScoringRuleType, PredictionChang
 ## Convenciones del proyecto
 
 - **Server Components** por defecto, `"use client"` solo cuando necesario
-- **API Routes**: convención objetivo con Route Handlers (`export async function POST()`), pendientes de implementación en esta rama
+- **API Routes**: Route Handlers (`export async function POST()`/`GET()`) activos en `app/api`
 - **Validación** con Zod en boundaries (API routes, forms)
 - **Auth check** con `auth()` en server o `getServerSession()` en API
 - **Prisma**: singleton en `lib/prisma.ts`, imports siempre desde ahí
 - **xlsx**: usar `import * as XLSX from "xlsx"` (namespace import, no default)
 - **Fechas**: date-fns para formateo, UTC en DB
 - **Ranking upsert**: usar findFirst + update/create (no upsert con nullable composite key)
+
+## Cambios recientes relevantes
+
+- Cruces de eliminatoria totalmente dinámicos con override de terceros.
+- Etiquetas de cruce legibles (`1° Grupo A`, `2° Grupo B`, `N° mejor tercero`).
+- Selector de clasificado por empate en KO sincronizado con equipos resueltos dinámicamente.
+- Modal de detalle de país al pulsar un equipo desde boards.
+- Nuevas acciones admin para reset por usuario y reset global de resultados de jugadores (solo con porra desbloqueada).
+- Error boundaries en `app/error.tsx` y `app/global-error.tsx` para fallos de DB/runtime.
 
 ## Variables de entorno requeridas
 

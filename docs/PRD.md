@@ -212,8 +212,20 @@ Estado actual:
 
 ### Estado actual (mayo 2026)
 
-- UI del panel admin implementada (tabs de resultados, scoring, historial, templates y demo).
-- Las rutas API esperadas para persistencia/recálculo están pendientes de implementación en esta rama.
+- Panel admin operativo con endpoints activos para resultados, recálculo, bloqueo por ronda y demo.
+- Gestión de usuarios de liga:
+	- borrar usuario de liga (con limpieza de datos de porra de esa liga)
+	- reset por usuario (sin borrar usuario de liga)
+	- reset global de resultados/predicciones de jugadores en liga (sin borrar miembros)
+- Restricción de seguridad en resets: solo se permiten con porra desbloqueada.
+- Auditoría de cambios y penalizaciones disponible por liga.
+
+### Bracket y KO (estado actual)
+
+- Cruces de 32/16/cuartos/semis/final calculados dinámicamente a partir de grupos y terceros.
+- Reordenar terceros impacta cruces en tiempo real.
+- Etiquetas de cruce legibles para explicar procedencia de equipos.
+- En empates de KO, el clasificado seleccionado se usa para propagar ganadores a rondas siguientes.
 
 ### Demo tools (solo dev):
 - Generar usuarios fake

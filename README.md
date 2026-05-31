@@ -1,111 +1,111 @@
 # Porra Mundial
 
-Aplicacion de porra para Mundial con Next.js, Auth.js, Prisma y PostgreSQL.
+Aplicacion web de porra para el Mundial 2026 con ligas privadas, predicciones de partidos, preguntas bonus, ranking por liga/global y panel de administracion.
 
 ## Stack
 
 - Next.js App Router + TypeScript
-- TailwindCSS (mobile first + dark mode)
-- Auth.js (credentials) + bcrypt + Zod
-- Prisma + PostgreSQL (Supabase compatible)
-- Resend para correos transaccionales
+- React 19 + TailwindCSS v4
+- NextAuth (credentials) + Prisma Adapter
+- Prisma + PostgreSQL
+- Resend (emails)
+- Vitest + Playwright
 
-## Modulos incluidos
+## Funcionalidades principales
 
-- Registro y login por credenciales
-- Pantalla de recuperacion de password (flujo backend pendiente)
-- Bracket interactivo para rondas KO
-- Ranking global y por ligas
-- Panel admin base (resultados, scoring, historial, templates, demo)
-- Plantillas de email (welcome, reminder, ranking summary)
+- Autenticacion por credenciales y gestion de sesion.
+- Predicciones de fase de grupos y eliminatorias (incluye clasificado en empate).
+- Ranking dinamico por liga y ranking global.
+- Bracket con cruces dinamicos segun clasificacion de grupos y orden de terceros.
+- Panel admin para resultados oficiales, scoring, recalc, bloqueo por ronda y auditoria.
+- Herramientas admin de mantenimiento:
+	- Reset por usuario (sin borrar usuario de liga).
+	- Reset de resultados de jugadores de una liga (sin borrar miembros).
+	- Borrado de usuario de liga.
+	- Reset completo de porra (solo admin global).
+- Modal de detalle de pais al pulsar equipo en pantallas de board.
+
+## API implementada
+
+Rutas activas en `app/api`:
+
+- `api/auth/[...nextauth]`
+- `api/predictions`
+- `api/bonus-answers`
+- `api/admin/results`
+- `api/admin/recalculate`
+- `api/admin/lock-round`
+- `api/admin/demo`
+- `api/admin/reset-porra`
+- `api/admin/users/delete`
+- `api/admin/users/reset`
+- `api/admin/users/reset-results`
+- `api/teams/[teamCode]/football-data`
+
+Nota: hay pantallas de auth adicionales (registro/reset password) cuyo backend puede estar incompleto segun entorno.
 
 ## Setup local
 
-1. Instala dependencias:
+1. Instalar dependencias
 
 ```bash
 npm install
 ```
 
-2. Configura variables de entorno:
+2. Configurar variables de entorno
 
 ```bash
 cp .env.example .env
 ```
 
-3. Crea la base de datos y cliente Prisma:
+3. Migrar y generar Prisma
 
 ```bash
 npm run prisma:migrate
 npm run prisma:generate
 ```
 
-4. Levanta el proyecto:
-
-```bash
-npm run dev
-```
-
-## Estado de API (mayo 2026)
-
-- La estructura de carpetas existe en `app/api/`, pero en esta rama no hay handlers (`route.ts`) implementados.
-- Los componentes cliente ya hacen `fetch` a rutas previstas (`/api/register`, `/api/predictions`, `/api/admin/*`, etc.), por lo que esas integraciones quedan pendientes hasta implementar los handlers.
-
-## Testing automatizado
-
-1. Instala navegadores de Playwright (una sola vez):
-
-```bash
-npm run e2e:install
-```
-
-2. Ejecuta tests unitarios + integracion (Vitest):
-
-```bash
-npm run test
-```
-
-3. Ejecuta cobertura:
-
-```bash
-npm run test:coverage
-```
-
-4. Ejecuta E2E (Playwright):
-
-```bash
-npm run e2e
-```
-
-5. Ejecuta todo junto:
-
-```bash
-npm run test:all
-```
-
-## Simulacion de torneo y carga masiva
-
-- Seed Prisma estandar:
+4. Seed inicial (opcional)
 
 ```bash
 npm run prisma:seed
 ```
 
-- Simulacion realista multi-liga/multi-usuario:
+5. Levantar entorno de desarrollo
+
+```bash
+npm run dev
+```
+
+## Testing
+
+```bash
+npm run test
+npm run test:coverage
+npm run e2e
+npm run test:all
+```
+
+Instalacion inicial de navegadores E2E:
+
+```bash
+npm run e2e:install
+```
+
+## Simulacion
 
 ```bash
 npm run simulate:tournament
 ```
 
-- Parametros opcionales:
+Con parametros:
 
 ```bash
 npm run simulate:tournament -- --users=30 --leagues=5 --memberships=2
 ```
 
-## Deploy recomendado
+## Deploy y contenedor
 
-- Frontend/API: Vercel
-- DB: Supabase PostgreSQL
-- ORM: Prisma
-- Email: Resend
+- Workflow remoto de build/push Docker en push a `main`: `.github/workflows/docker.yml`.
+- Publicacion en GHCR (`ghcr.io/<owner>/<repo>`).
+- Despliegue objetivo recomendado: Debian + Docker Compose.

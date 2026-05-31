@@ -111,6 +111,7 @@ Estados de predicción (UI actual):
 - Cada fila: banderas + nombre equipos + inputs goles + selector clasificado (en knockout)
 - Estado: editable / bloqueado / con resultado
 - Colores según acierto: exacto (verde), outcome (amarillo), fallo (rojo/gris)
+- Click en país/equipo abre modal de detalle sin salir de la pantalla
 
 ### Bracket Board
 - Visualización de árbol de eliminatorias
@@ -118,6 +119,7 @@ Estados de predicción (UI actual):
 - Banderas + nombres de equipos
 - Conexiones visuales entre rondas
 - Predicción inline en cada nodo
+- Labels explicativos de procedencia de cruce (grupo/tercero)
 
 ### Rankings Table
 - Columnas: posición, nombre, puntos, exactos, accuracy
@@ -174,7 +176,7 @@ Estado actual:
 
 - Existen empty states puntuales en componentes (ej. listas sin datos en admin y secciones de predicciones/bonus).
 - Existen estados de carga locales en formularios y botones.
-- No existe un patrón global de error boundary para toda la app.
+- Existen error boundaries de app: `app/error.tsx` y `app/global-error.tsx`.
 
 Pendiente de producto/UI:
 
