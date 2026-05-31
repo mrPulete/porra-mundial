@@ -108,6 +108,7 @@ const STAGE_ORDER: MatchStage[] = [
 type StageLockState = "LOCKED" | "OPEN" | "MIXED";
 
 export function AdminConsole({
+  currentTimestamp,
   matches,
   rules,
   bonusRules,
@@ -118,6 +119,7 @@ export function AdminConsole({
   userSubmissionSummaries,
   demoToolsEnabled,
 }: {
+  currentTimestamp: number;
   matches: AdminMatch[];
   rules: Rule[];
   bonusRules: BonusRule[];
@@ -141,13 +143,16 @@ export function AdminConsole({
   const [demoMemberships, setDemoMemberships] = useState(2);
   const [roundLockAction, setRoundLockAction] = useState<{ stage: MatchStage; mode: RoundLockMode } | null>(null);
   const [resettingPorra, setResettingPorra] = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [resettingUserPredictionsId, setResettingUserPredictionsId] = useState<string | null>(null);
+  const [resettingLeaguePlayerResults, setResettingLeaguePlayerResults] = useState(false);
 
   const buildUserResultsHref = (userId: string) =>
     `/matches?leagueId=${encodeURIComponent(activeLeagueId)}&viewUserId=${encodeURIComponent(userId)}`;
 
   const stageButtons = STAGE_ORDER.filter((stage) => matches.some((match) => match.stage === stage));
   const stageStateByStage = (() => {
-    const now = Date.now();
+    const now = currentTimestamp;
     const map = new Map<MatchStage, StageLockState>();
 
     for (const stage of stageButtons) {
@@ -192,6 +197,8 @@ export function AdminConsole({
     },
     { locked: 0, open: 0, mixed: 0 }
   );
+
+  const isPredictionsUnlocked = matches.some((match) => new Date(match.lockAt).getTime() > currentTimestamp);
 
   const updateRule = <T extends { points: number; enabled: boolean }, K extends "points" | "enabled">(
     setRules: Dispatch<SetStateAction<T[]>>,
@@ -370,6 +377,108 @@ export function AdminConsole({
       setMessage("Error reiniciando porra");
     } finally {
       setResettingPorra(false);
+    }
+  };
+
+  const removeUserFromLeague = async (user: Pick<UserSubmissionSummary, "userId" | "userName" | "isOwner">) => {
+    if (user.isOwner) {
+      setMessage("No puedes borrar al creador de la liga.");
+      return;
+    }
+
+    const ok = window.confirm(`Se eliminará a ${user.userName} de esta liga y se borrarán sus datos de la porra en esta liga. ¿Continuar?`);
+    if (!ok) {
+      return;
+    }
+
+    setRemovingUserId(user.userId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/admin/users/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: activeLeagueId, userId: user.userId }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      setMessage(res.ok ? data.message || "Usuario eliminado de la liga" : data.error || "Error borrando usuario");
+
+      if (res.ok) {
+        setTimeout(() => window.location.reload(), 700);
+      }
+    } catch {
+      setMessage("Error borrando usuario");
+    } finally {
+      setRemovingUserId(null);
+    }
+  };
+
+  const resetUserPredictions = async (user: Pick<UserSubmissionSummary, "userId" | "userName">) => {
+    if (!isPredictionsUnlocked) {
+      setMessage("La porra esta bloqueada. Desbloquea una ronda para poder resetear pronosticos.");
+      return;
+    }
+
+    const ok = window.confirm(`Se borraran los pronosticos y respuestas bonus de ${user.userName} en esta liga. El usuario seguira en la liga. ¿Continuar?`);
+    if (!ok) {
+      return;
+    }
+
+    setResettingUserPredictionsId(user.userId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/admin/users/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: activeLeagueId, userId: user.userId }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      setMessage(res.ok ? data.message || "Pronosticos del usuario reseteados" : data.error || "Error reseteando usuario");
+
+      if (res.ok) {
+        setTimeout(() => window.location.reload(), 700);
+      }
+    } catch {
+      setMessage("Error reseteando usuario");
+    } finally {
+      setResettingUserPredictionsId(null);
+    }
+  };
+
+  const resetLeaguePlayerResults = async () => {
+    if (!isPredictionsUnlocked) {
+      setMessage("La porra esta bloqueada. Desbloquea una ronda para poder resetear pronosticos.");
+      return;
+    }
+
+    const ok = window.confirm("Se borraran los pronosticos y respuestas bonus de todos los jugadores de esta liga, pero no se borrara ningun jugador. ¿Continuar?");
+    if (!ok) {
+      return;
+    }
+
+    setResettingLeaguePlayerResults(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/admin/users/reset-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: activeLeagueId }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      setMessage(res.ok ? data.message || "Resultados de jugadores reiniciados" : data.error || "Error reiniciando resultados de jugadores");
+
+      if (res.ok) {
+        setTimeout(() => window.location.reload(), 700);
+      }
+    } catch {
+      setMessage("Error reiniciando resultados de jugadores");
+    } finally {
+      setResettingLeaguePlayerResults(false);
     }
   };
 
@@ -604,6 +713,19 @@ export function AdminConsole({
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
           Abre la pantalla de cada jugador en una pestaña nueva. Aquí ves el estado de progreso de su porra.
         </p>
+        <div className="mt-3">
+          <button
+            onClick={resetLeaguePlayerResults}
+            disabled={!isPredictionsUnlocked || resettingLeaguePlayerResults || removingUserId !== null || resettingUserPredictionsId !== null}
+            className="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            title={isPredictionsUnlocked ? "Reinicia pronosticos de todos los jugadores de la liga" : "Solo disponible con la porra desbloqueada"}
+          >
+            {resettingLeaguePlayerResults ? "Reiniciando jugadores..." : "Reiniciar resultados de jugadores"}
+          </button>
+          {!isPredictionsUnlocked && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Accion deshabilitada: la porra esta bloqueada.</p>
+          )}
+        </div>
 
         {userSubmissionSummaries.length === 0 ? (
           <p className="mt-3 text-sm text-neutral-500">No hay usuarios para mostrar en esta liga.</p>
@@ -634,6 +756,22 @@ export function AdminConsole({
                 >
                   Abrir pantalla del usuario
                 </a>
+                <button
+                  onClick={() => resetUserPredictions(user)}
+                  disabled={!isPredictionsUnlocked || resettingUserPredictionsId !== null || removingUserId !== null}
+                  className="mt-2 ml-2 inline-block rounded-lg bg-amber-700 px-2.5 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  title={isPredictionsUnlocked ? "Resetear pronosticos y bonus de este usuario" : "Solo disponible con la porra desbloqueada"}
+                >
+                  {resettingUserPredictionsId === user.userId ? "Reseteando..." : "Resetear usuario"}
+                </button>
+                <button
+                  onClick={() => removeUserFromLeague(user)}
+                  disabled={removingUserId !== null || resettingUserPredictionsId !== null || user.isOwner}
+                  className="mt-2 ml-2 inline-block rounded-lg bg-red-700 px-2.5 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  title={user.isOwner ? "No se puede borrar al creador de la liga" : "Borrar usuario de la liga"}
+                >
+                  {removingUserId === user.userId ? "Borrando..." : "Borrar usuario"}
+                </button>
               </article>
             ))}
           </div>

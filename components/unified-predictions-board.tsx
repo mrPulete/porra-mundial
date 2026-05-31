@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { buildBracketTree, buildGroupStandings, buildThirdPlaceRanking } from "@/lib/tournament-tree";
+import { buildBracketTree, buildGroupStandings, buildThirdPlaceRanking, type TeamSnapshot } from "@/lib/tournament-tree";
 import type { ScoringSettings } from "@/lib/scoring-settings";
 import type { PredictionEditPolicy } from "@/lib/prediction-edit-policy";
+import TeamLink from "./team/team-link";
 
 const DEFAULT_SCORING: ScoringSettings = {
   homeGoalsHit: 1,
@@ -71,7 +71,10 @@ type MatchRow = {
   officialPredictedQualifiedTeamId?: string | null;
 };
 
-type PickableMatch = Pick<MatchRow, "id" | "stage" | "homeName" | "awayName" | "homeTeamId" | "awayTeamId" | "kickoffAt" | "stadium" | "city">;
+type PickableMatch = Pick<MatchRow, "id" | "stage" | "kickoffAt" | "stadium" | "city"> & {
+  homeTeam: TeamSnapshot | null;
+  awayTeam: TeamSnapshot | null;
+};
 
 type BonusQuestionRow = {
   id: string;
@@ -708,7 +711,9 @@ export function UnifiedPredictionsBoard({
       home: values[match.id]?.home ?? "",
       away: values[match.id]?.away ?? "",
     });
-    setModalQualifiedTeamId(qualifierValues[match.id] ?? "");
+    const selectedQualifier = qualifierValues[match.id] ?? "";
+    const availableTeamIds = new Set([match.homeTeam?.teamId, match.awayTeam?.teamId].filter((teamId): teamId is string => Boolean(teamId)));
+    setModalQualifiedTeamId(availableTeamIds.has(selectedQualifier) ? selectedQualifier : "");
   };
 
   const applyResultFromModal = () => {
@@ -970,9 +975,7 @@ export function UnifiedPredictionsBoard({
                   {selectedGroupStandings.map((team, index) => (
                     <div key={`${team.group}-${team.name}`} className="grid grid-cols-[1.4rem_1fr_3rem_3rem_3rem_3rem] gap-2 px-3 py-2 text-sm">
                       <span className="font-black text-emerald-700 dark:text-emerald-300">{index + 1}</span>
-                      <Link href={`/teams/${teamCodeByName.get(team.name) ?? team.name}`} className="truncate font-semibold hover:underline">
-                        {team.flag} {team.name}
-                      </Link>
+                      <TeamLink teamId={teamCodeByName.get(team.name) ?? team.name} name={team.name} flag={team.flag} className="truncate" />
                       <span className="text-right font-black">{team.points}</span>
                       <span className="text-right text-neutral-600 dark:text-neutral-300">{team.played}</span>
                       <span className="text-right text-neutral-600 dark:text-neutral-300">{team.goalDifference}</span>
@@ -1015,41 +1018,86 @@ export function UnifiedPredictionsBoard({
               <p className="text-sm text-neutral-500">Aún no hay terceros calculables. Mete algunos marcadores de grupos primero.</p>
             ) : (
               <div className="space-y-2">
-                {thirdRanking.map((team, index) => (
-                  <div
-                    key={`${team.group}-${team.name}`}
-                    draggable={!readOnly}
-                    onDragStart={() => {
-                      if (!readOnly) {
-                        dragItem.current = team.group;
-                      }
-                    }}
-                    onDragEnter={() => {
-                      if (!readOnly) {
-                        dragOverItem.current = team.group;
-                      }
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-[1.5rem_2.2rem_1fr] items-center gap-2 rounded-xl border border-black/10 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-neutral-800/50 ${
-                      readOnly ? "cursor-default" : "cursor-grab active:cursor-grabbing active:opacity-60"
-                    }`}
-                  >
-                    <span className="select-none text-center text-base leading-none text-neutral-400 dark:text-neutral-500" aria-hidden>⠿</span>
-                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">{index + 1}</span>
-                    <div className="min-w-0 text-sm">
-                      <p className="truncate font-bold">
-                        <Link href={`/teams/${teamCodeByName.get(team.name) ?? team.name}`} className="hover:underline">
-                          {team.flag} {team.name}
-                        </Link>{" "}
-                        <span className="text-neutral-500">(Grupo {team.group})</span>
-                      </p>
-                      <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                        Pts {team.points} · DG {team.goalDifference} · GF {team.goalsFor}
-                      </p>
+                <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+                  <span className="rounded-full border border-emerald-400 bg-emerald-100 px-2 py-0.5 text-emerald-900 dark:border-emerald-400/50 dark:bg-emerald-500/25 dark:text-emerald-100">
+                    Puestos 1-8: Clasifican
+                  </span>
+                  <span className="rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-red-900 dark:border-red-400/50 dark:bg-red-500/25 dark:text-red-100">
+                    Puestos 9-12: Eliminados
+                  </span>
+                </div>
+
+                {thirdRanking.map((team, index) => {
+                  const isTopEight = index < 8;
+
+                  return (
+                    <div key={`${team.group}-${team.name}`} className="space-y-2">
+                      {index === 8 && (
+                        <div className="rounded-lg border border-dashed border-red-400 bg-red-50 px-3 py-1 text-center text-[11px] font-black uppercase tracking-wide text-red-800 dark:border-red-400/60 dark:bg-red-500/15 dark:text-red-200">
+                          Corte de clasificación
+                        </div>
+                      )}
+
+                      <div
+                        draggable={!readOnly}
+                        onDragStart={() => {
+                          if (!readOnly) {
+                            dragItem.current = team.group;
+                          }
+                        }}
+                        onDragEnter={() => {
+                          if (!readOnly) {
+                            dragOverItem.current = team.group;
+                          }
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDragEnd={handleDragEnd}
+                        className={`grid grid-cols-[1.5rem_2.2rem_1fr_auto] items-center gap-2 rounded-xl border-2 px-3 py-2 ${
+                          isTopEight
+                            ? "border-emerald-500 bg-emerald-100 dark:border-emerald-400 dark:bg-emerald-500/20"
+                            : "border-red-400 bg-red-100 dark:border-red-400/70 dark:bg-red-500/20"
+                        } ${readOnly ? "cursor-default" : "cursor-grab active:cursor-grabbing active:opacity-60"}`}
+                      >
+                        <span
+                          className={`select-none text-center text-base leading-none ${
+                            isTopEight ? "text-emerald-700 dark:text-emerald-200" : "text-red-700 dark:text-red-200"
+                          }`}
+                          aria-hidden
+                        >
+                          ⠿
+                        </span>
+
+                        <span
+                          className={`text-sm font-black ${
+                            isTopEight ? "text-emerald-900 dark:text-emerald-100" : "text-red-900 dark:text-red-100"
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+
+                        <div className="min-w-0 text-sm">
+                          <p className="truncate font-bold">
+                            <TeamLink teamId={teamCodeByName.get(team.name) ?? team.name} name={team.name} flag={team.flag} className="font-bold" />{" "}
+                            <span className={isTopEight ? "text-emerald-900/80 dark:text-emerald-100/80" : "text-red-900/80 dark:text-red-100/80"}>
+                              (Grupo {team.group})
+                            </span>
+                          </p>
+                          <p className={`text-xs ${isTopEight ? "text-emerald-900/80 dark:text-emerald-100/80" : "text-red-900/80 dark:text-red-100/80"}`}>
+                            Pts {team.points} · DG {team.goalDifference} · GF {team.goalsFor}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                            isTopEight ? "bg-emerald-700 text-white" : "bg-red-700 text-white"
+                          }`}
+                        >
+                          {isTopEight ? "Clasifica" : "Fuera"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1151,8 +1199,7 @@ export function UnifiedPredictionsBoard({
                             <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
                               {match.home && sourceMatch ? (
                                 <>
-                                  <Link href={`/teams/${sourceMatch.homeTeamCode}`} className="text-2xl leading-none hover:opacity-70">{match.home.flag}</Link>
-                                  <Link href={`/teams/${sourceMatch.homeTeamCode}`} className="text-xs font-bold leading-tight hover:underline">{match.home.name}</Link>
+                                  <TeamLink teamId={sourceMatch.homeTeamCode} name={match.home.name} flag={match.home.flag} className="text-xs font-bold leading-tight" />
                                 </>
                               ) : (
                                 <>
@@ -1165,7 +1212,19 @@ export function UnifiedPredictionsBoard({
                             <button
                               type="button"
                               disabled={readOnly || isLocked || !sourceMatch || !canEditKnockoutStage}
-                              onClick={() => { if (!readOnly && !isLocked && sourceMatch && canEditKnockoutStage) openResultModal(sourceMatch); }}
+                              onClick={() => {
+                                if (!readOnly && !isLocked && sourceMatch && canEditKnockoutStage) {
+                                  openResultModal({
+                                    id: sourceMatch.id,
+                                    stage: sourceMatch.stage,
+                                    kickoffAt: sourceMatch.kickoffAt,
+                                    stadium: sourceMatch.stadium,
+                                    city: sourceMatch.city,
+                                    homeTeam: match.home,
+                                    awayTeam: match.away,
+                                  });
+                                }
+                              }}
                               className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 disabled:cursor-default dark:hover:bg-emerald-900/20"
                             >
                               <div className="flex flex-col items-center gap-0.5">
@@ -1184,8 +1243,7 @@ export function UnifiedPredictionsBoard({
                             <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
                               {match.away && sourceMatch ? (
                                 <>
-                                  <Link href={`/teams/${sourceMatch.awayTeamCode}`} className="text-2xl leading-none hover:opacity-70">{match.away.flag}</Link>
-                                  <Link href={`/teams/${sourceMatch.awayTeamCode}`} className="text-xs font-bold leading-tight hover:underline">{match.away.name}</Link>
+                                  <TeamLink teamId={sourceMatch.awayTeamCode} name={match.away.name} flag={match.away.flag} className="text-xs font-bold leading-tight" />
                                 </>
                               ) : (
                                 <>
@@ -1273,13 +1331,36 @@ export function UnifiedPredictionsBoard({
 
                         <div className="flex items-center justify-center gap-2">
                           <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
-                            <Link href={`/teams/${match.homeTeamCode}`} className="text-2xl leading-none hover:opacity-70">{match.homeFlag}</Link>
-                            <Link href={`/teams/${match.homeTeamCode}`} className="text-xs font-bold leading-tight hover:underline">{match.homeName}</Link>
+                            <TeamLink teamId={match.homeTeamCode} name={match.homeName} flag={match.homeFlag} className="text-xs font-bold leading-tight" />
                           </div>
 
                           <button
                             type="button"
-                            onClick={() => !readOnly && !isLocked && !match.isFinished && canEditGroupStage && openResultModal(match)}
+                            onClick={() =>
+                              !readOnly &&
+                              !isLocked &&
+                              !match.isFinished &&
+                              canEditGroupStage &&
+                              openResultModal({
+                                id: match.id,
+                                stage: match.stage,
+                                kickoffAt: match.kickoffAt,
+                                stadium: match.stadium,
+                                city: match.city,
+                                homeTeam: {
+                                  name: match.homeName,
+                                  flag: match.homeFlag,
+                                  group: match.group ?? "",
+                                  teamId: match.homeTeamId,
+                                },
+                                awayTeam: {
+                                  name: match.awayName,
+                                  flag: match.awayFlag,
+                                  group: match.group ?? "",
+                                  teamId: match.awayTeamId,
+                                },
+                              })
+                            }
                             disabled={readOnly || isLocked || match.isFinished || !canEditGroupStage}
                             className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 disabled:cursor-default dark:hover:bg-emerald-900/20"
                           >
@@ -1297,8 +1378,7 @@ export function UnifiedPredictionsBoard({
                           </button>
 
                           <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
-                            <Link href={`/teams/${match.awayTeamCode}`} className="text-2xl leading-none hover:opacity-70">{match.awayFlag}</Link>
-                            <Link href={`/teams/${match.awayTeamCode}`} className="text-xs font-bold leading-tight hover:underline">{match.awayName}</Link>
+                            <TeamLink teamId={match.awayTeamCode} name={match.awayName} flag={match.awayFlag} className="text-xs font-bold leading-tight" />
                           </div>
                         </div>
 
@@ -1388,7 +1468,7 @@ export function UnifiedPredictionsBoard({
           <div className="w-full max-w-sm rounded-2xl border border-black/10 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-neutral-900">
             <h3 className="text-base font-black">Selecciona resultado</h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-              {modalMatch.homeName} vs {modalMatch.awayName}
+              {modalMatch.homeTeam?.name ?? "Por definir"} vs {modalMatch.awayTeam?.name ?? "Por definir"}
             </p>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
               {new Date(modalMatch.kickoffAt).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}
@@ -1401,7 +1481,7 @@ export function UnifiedPredictionsBoard({
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-                {modalMatch.homeName}
+                {modalMatch.homeTeam?.name ?? "Por definir"}
                 <select
                   className="mt-1 w-full rounded-md border border-black/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-neutral-950"
                   value={modalScore.home}
@@ -1417,7 +1497,7 @@ export function UnifiedPredictionsBoard({
               </label>
 
               <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-                {modalMatch.awayName}
+                {modalMatch.awayTeam?.name ?? "Por definir"}
                 <select
                   className="mt-1 w-full rounded-md border border-black/10 bg-white px-2 py-1 dark:border-white/10 dark:bg-neutral-950"
                   value={modalScore.away}
@@ -1442,8 +1522,12 @@ export function UnifiedPredictionsBoard({
                   onChange={(e) => setModalQualifiedTeamId(e.target.value)}
                 >
                   <option value="">Sin seleccionar</option>
-                  <option value={modalMatch.homeTeamId}>{modalMatch.homeName}</option>
-                  <option value={modalMatch.awayTeamId}>{modalMatch.awayName}</option>
+                  {modalMatch.homeTeam?.teamId && (
+                    <option value={modalMatch.homeTeam.teamId}>{modalMatch.homeTeam.name}</option>
+                  )}
+                  {modalMatch.awayTeam?.teamId && (
+                    <option value={modalMatch.awayTeam.teamId}>{modalMatch.awayTeam.name}</option>
+                  )}
                 </select>
               </label>
             )}

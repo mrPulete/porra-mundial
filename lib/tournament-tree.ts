@@ -164,7 +164,7 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
       const groupRows = rows.get(match.group)!;
       if (!groupRows.has(match.homeName)) {
         groupRows.set(match.homeName, {
-          ...makeSnapshot(match.homeName, match.homeFlag, match.group),
+          ...makeSnapshot(match.homeName, match.homeFlag, match.group, match.homeTeamId),
           played: 0,
           points: 0,
           goalsFor: 0,
@@ -174,7 +174,7 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
       }
       if (!groupRows.has(match.awayName)) {
         groupRows.set(match.awayName, {
-          ...makeSnapshot(match.awayName, match.awayFlag, match.group),
+          ...makeSnapshot(match.awayName, match.awayFlag, match.group, match.awayTeamId),
           played: 0,
           points: 0,
           goalsFor: 0,
@@ -194,7 +194,7 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
     const homeStanding =
       groupRows.get(match.homeName) ??
       ({
-        ...makeSnapshot(match.homeName, match.homeFlag, match.group),
+        ...makeSnapshot(match.homeName, match.homeFlag, match.group, match.homeTeamId),
         played: 0,
         points: 0,
         goalsFor: 0,
@@ -205,7 +205,7 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
     const awayStanding =
       groupRows.get(match.awayName) ??
       ({
-        ...makeSnapshot(match.awayName, match.awayFlag, match.group),
+        ...makeSnapshot(match.awayName, match.awayFlag, match.group, match.awayTeamId),
         played: 0,
         points: 0,
         goalsFor: 0,
@@ -306,15 +306,19 @@ function getSlotReferenceLabel(
   // Referencias de terceros: 3ABCDF, etc.
   if (ref.startsWith("3")) {
     if (resolvedTeam) {
+      const resolvedGroup = resolvedTeam.group?.trim().toUpperCase();
+
       // Buscar la posición del tercero en la ranking
-      const thirdIndex = thirdRanking.findIndex((t) => t.group === resolvedTeam.group);
+      const thirdIndex = thirdRanking.findIndex((t) => t.group.trim().toUpperCase() === resolvedGroup);
       if (thirdIndex !== -1) {
         const position = thirdIndex + 1; // Convertir índice a posición (1-based)
         return `${position}° mejor tercero`;
       }
-      return `3° Mejor (${resolvedTeam.group})`;
+
+      return "3° mejor tercero";
     }
-    return `3° Mejor`;
+
+    return "3° mejor tercero";
   }
 
   // Referencias de matches previos: W73, W74, etc.

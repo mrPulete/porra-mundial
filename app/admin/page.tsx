@@ -1,4 +1,4 @@
-import { MatchStage, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getLeagueScoringConfig } from "@/lib/scoring-config";
@@ -191,10 +191,13 @@ export default async function AdminPage({
     kickoffAt: match.kickoffAt,
   }));
 
+  const serverTimestamp = new Date().getTime();
+
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8">
       <h1 className="text-3xl font-black">Panel Admin</h1>
       <AdminConsole
+        currentTimestamp={serverTimestamp}
         matches={adminMatches}
         rules={leagueScoring.rules.map((rule) => ({
           id: rule.id,
