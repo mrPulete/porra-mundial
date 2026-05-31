@@ -2,6 +2,7 @@
 
 import { buildBracketTree, type TournamentMatchLike } from "@/lib/tournament-tree";
 import TeamLink from "./team/team-link";
+import { useEffect, useState } from "react";
 
 type ScoreMap = Record<string, { home: string; away: string }>;
 
@@ -14,6 +15,8 @@ const columnSpacing: Record<string, string> = {
   final: "pt-52",
 };
 
+const THIRDS_STORAGE_KEY = "porra.thirds.order";
+
 export function BracketBoard({
   matches,
   liveScores,
@@ -25,7 +28,39 @@ export function BracketBoard({
   onPickMatch?: (match: TournamentMatchLike) => void;
   visualOnly?: boolean;
 }) {
-  const { rounds } = buildBracketTree(matches, liveScores);
+  const [thirdOrder, setThirdOrder] = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  // Leer el orden de terceros del localStorage al montar
+  useEffect(() => {
+    const stored = window.localStorage.getItem(THIRDS_STORAGE_KEY);
+    if (stored) {
+      try {
+        setThirdOrder(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing thirds order from localStorage:", e);
+      }
+    }
+    setMounted(true);
+  }, []);
+
+  // Escuchar cambios del localStorage (desde otras tabs/windows)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === THIRDS_STORAGE_KEY && e.newValue) {
+        try {
+          setThirdOrder(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error("Error parsing thirds order:", err);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const { rounds } = buildBracketTree(matches, liveScores, thirdOrder);
   const byCode = new Map(matches.filter((match) => Boolean(match.code)).map((match) => [match.code as string, match]));
 
   return (
