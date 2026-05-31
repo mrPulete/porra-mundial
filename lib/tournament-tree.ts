@@ -144,6 +144,55 @@ function outcomeWinner(
   return score.home > score.away ? home : away;
 }
 
+function outcomeLoser(
+  home: TeamSnapshot | null,
+  away: TeamSnapshot | null,
+  score: { home: number; away: number } | null,
+  qualifiedTeamId?: string | null
+) {
+  if (!home || !away || !score) {
+    return null;
+  }
+
+  if (score.home > score.away) {
+    return away;
+  }
+
+  if (score.away > score.home) {
+    return home;
+  }
+
+  const winner = outcomeWinner(home, away, score, qualifiedTeamId);
+  if (!winner) {
+    return null;
+  }
+
+  if (winner.teamId && home.teamId && winner.teamId === home.teamId) {
+    return away;
+  }
+
+  if (winner.teamId && away.teamId && winner.teamId === away.teamId) {
+    return home;
+  }
+
+  if (winner.name === home.name) {
+    return away;
+  }
+
+  if (winner.name === away.name) {
+    return home;
+  }
+
+  return null;
+}
+
+function loserCodeFromWinnerCode(code: string) {
+  if (!/^W\d+$/.test(code)) {
+    return null;
+  }
+  return `L${code.slice(1)}`;
+}
+
 function isPlaceholderLabel(label: string) {
   return /^W\d+$/.test(label) || /^L\d+$/.test(label) || /^[123][A-L]+$/.test(label) || label.startsWith("Ganador ");
 }
@@ -370,11 +419,25 @@ function buildRoundSlots(
         )
       : null;
 
+    const loser = match
+      ? outcomeLoser(
+          matchHome,
+          matchAway,
+          getScore(match, liveScores),
+          liveQualifiers?.[match.id] ?? match.predictedQualifiedTeamId
+        )
+      : null;
+
     const homeLabel = getSlotReferenceLabel(homeRef, matchHome, thirdRanking);
     const awayLabel = getSlotReferenceLabel(awayRef, matchAway, thirdRanking);
     const label = `${homeLabel} vs ${awayLabel}`;
 
     lookup.set(code, winner ?? null);
+
+    const loserCode = loserCodeFromWinnerCode(code);
+    if (loserCode) {
+      lookup.set(loserCode, loser ?? null);
+    }
 
     return {
       code,

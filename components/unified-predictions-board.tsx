@@ -117,6 +117,44 @@ function isKnockoutStage(stage: string) {
   return stage !== "GROUP" && stage !== "THIRD_PLACE";
 }
 
+function normalizeQualifierForScore(
+  match: Pick<MatchRow, "stage"> | undefined,
+  score: { home: string; away: string },
+  qualifier: string
+) {
+  if (!match || !isKnockoutStage(match.stage)) {
+    return "";
+  }
+
+  if (score.home === "" || score.away === "") {
+    return "";
+  }
+
+  if (score.home !== score.away) {
+    return "";
+  }
+
+  return qualifier;
+}
+
+function normalizeQualifierMap(
+  matchesById: Map<string, MatchRow>,
+  values: Record<string, { home: string; away: string }>,
+  qualifierValues: Record<string, string>
+) {
+  const normalized: Record<string, string> = {};
+  const matchIds = new Set([...Object.keys(values), ...Object.keys(qualifierValues)]);
+
+  for (const matchId of matchIds) {
+    const match = matchesById.get(matchId);
+    const score = values[matchId] ?? { home: "", away: "" };
+    const qualifier = qualifierValues[matchId] ?? "";
+    normalized[matchId] = normalizeQualifierForScore(match, score, qualifier);
+  }
+
+  return normalized;
+}
+
 function buildInitialScoreValues(matches: MatchRow[]) {
   const init: Record<string, { home: string; away: string }> = {};
   for (const match of matches) {
@@ -487,6 +525,10 @@ export function UnifiedPredictionsBoard({
     return matches.filter((match) => match.stage === tab.stage);
   }, [matches, activeKnockoutTab]);
 
+  const matchesById = useMemo(() => {
+    return new Map(matches.map((match) => [match.id, match]));
+  }, [matches]);
+
   const pendingGroupCount = selectedGroupMatches.filter((match) => {
     const value = values[match.id];
     return !value || value.home === "" || value.away === "";
@@ -504,10 +546,11 @@ export function UnifiedPredictionsBoard({
     let changed = 0;
 
     for (const matchId of matchIds) {
+      const match = matchesById.get(matchId);
       const currentScore = values[matchId] ?? { home: "", away: "" };
       const officialScore = officialValues[matchId] ?? { home: "", away: "" };
-      const currentQualifier = qualifierValues[matchId] ?? "";
-      const officialQualifier = officialQualifierValues[matchId] ?? "";
+      const currentQualifier = normalizeQualifierForScore(match, currentScore, qualifierValues[matchId] ?? "");
+      const officialQualifier = normalizeQualifierForScore(match, officialScore, officialQualifierValues[matchId] ?? "");
 
       if (
         currentScore.home !== officialScore.home ||
@@ -528,7 +571,7 @@ export function UnifiedPredictionsBoard({
     }
 
     return changed;
-  }, [values, officialValues, qualifierValues, officialQualifierValues, bonusAnswers, officialBonusAnswers]);
+  }, [values, officialValues, qualifierValues, officialQualifierValues, bonusAnswers, officialBonusAnswers, matchesById]);
 
   const potentialPenaltyPoints = isReopened ? pendingOfficialChangesCount * (editPolicy?.officialSubmissionPenaltyPerChange ?? 1) : 0;
 
@@ -545,12 +588,17 @@ export function UnifiedPredictionsBoard({
       mode: "official" as const,
       predictions: Object.entries(values)
         .filter(([, score]) => score.home !== "" && score.away !== "")
-        .map(([matchId, score]) => ({
-          matchId,
-          homeScore: Number(score.home),
-          awayScore: Number(score.away),
-          predictedQualifiedTeamId: qualifierValues[matchId] || null,
-        })),
+        .map(([matchId, score]) => {
+          const match = matchesById.get(matchId);
+          const normalizedQualifier = normalizeQualifierForScore(match, score, qualifierValues[matchId] ?? "");
+
+          return {
+            matchId,
+            homeScore: Number(score.home),
+            awayScore: Number(score.away),
+            predictedQualifiedTeamId: normalizedQualifier || null,
+          };
+        }),
     };
 
     const res = await fetch("/api/predictions", {
@@ -620,8 +668,10 @@ export function UnifiedPredictionsBoard({
 
       setSubmissionStatus("OFFICIAL");
       setLastOfficialSubmittedAt(nowIso);
+      const normalizedQualifiers = normalizeQualifierMap(matchesById, values, qualifierValues);
       setOfficialValues({ ...values });
-      setOfficialQualifierValues({ ...qualifierValues });
+      setQualifierValues(normalizedQualifiers);
+      setOfficialQualifierValues(normalizedQualifiers);
       setOfficialBonusAnswers({ ...bonusAnswers });
       setMessage("✅ Predicción oficial enviada");
     } catch (error) {

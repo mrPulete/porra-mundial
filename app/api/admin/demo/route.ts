@@ -31,8 +31,16 @@ const payloadSchema = z.object({
   maxMembershipsPerUser: z.number().int().min(1).max(20).optional(),
 });
 
-function hasDemoAccess(role?: string | null) {
-  return role === "ADMIN" || process.env.ENABLE_DEMO_TOOLS === "true";
+async function hasDemoAccess(userId: string, role: string | null | undefined, leagueId?: string) {
+  if (role === "ADMIN" || process.env.ENABLE_DEMO_TOOLS === "true") {
+    return true;
+  }
+
+  if (!leagueId) {
+    return false;
+  }
+
+  return canAccessAdminForLeague(userId, leagueId, role);
 }
 
 export async function POST(request: Request) {
@@ -40,10 +48,6 @@ export async function POST(request: Request) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  if (!hasDemoAccess(session.user.role)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
@@ -54,6 +58,11 @@ export async function POST(request: Request) {
   }
 
   const { action, leagueId, userCount, leagueCount, maxMembershipsPerUser } = parsed.data;
+
+  const hasAccess = await hasDemoAccess(session.user.id, session.user.role, leagueId);
+  if (!hasAccess) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
 
   try {
     if (action === "GENERATE_DEMO_USERS") {

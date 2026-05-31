@@ -247,7 +247,7 @@ export default async function AdminPage({
             hasOfficialSubmission: Boolean(latest),
           };
         })}
-        demoToolsEnabled={session.user.role === "ADMIN" || process.env.ENABLE_DEMO_TOOLS === "true"}
+        demoToolsEnabled
       />
     </main>
   );
