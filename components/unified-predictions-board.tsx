@@ -541,6 +541,22 @@ export function UnifiedPredictionsBoard({
 
   const pendingQuestionCount = bonusQuestions.filter((question) => !bonusAnswers[question.id]).length;
 
+  const editableMatches = useMemo(() => {
+    return matches.filter((match) => {
+      if (match.stage === "GROUP") {
+        return canEditGroupStage;
+      }
+      return canEditKnockoutStage;
+    });
+  }, [matches, canEditGroupStage, canEditKnockoutStage]);
+
+  const totalEditableResults = editableMatches.length;
+  const pendingEditableResults = editableMatches.filter((match) => {
+    const value = values[match.id];
+    return !value || value.home === "" || value.away === "";
+  }).length;
+  const sentEditableResults = Math.max(0, totalEditableResults - pendingEditableResults);
+
   const pendingOfficialChangesCount = useMemo(() => {
     const matchIds = new Set([...Object.keys(values), ...Object.keys(officialValues), ...Object.keys(qualifierValues), ...Object.keys(officialQualifierValues)]);
     let changed = 0;
@@ -900,14 +916,22 @@ export function UnifiedPredictionsBoard({
                 ? "🟠 REABIERTA"
                 : "🔴 CERRADA"}
           </span>
-          {lastOfficialSubmittedAt && (
-            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-              ✅ Predicción oficial enviada
+          {totalEditableResults > 0 && (
+            <span
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                pendingEditableResults === 0
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                  : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+              }`}
+            >
+              {pendingEditableResults === 0
+                ? `✅ Todos enviados (${sentEditableResults}/${totalEditableResults})`
+                : `⏳ Pendientes por enviar: ${pendingEditableResults}/${totalEditableResults}`}
             </span>
           )}
           {hasPendingOfficialChanges && !isLocked && (
             <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-              ⚠️ Cambios pendientes de confirmar
+              ⚠️ Cambios pendientes de confirmar ({pendingOfficialChangesCount})
             </span>
           )}
           {isLocked && (
