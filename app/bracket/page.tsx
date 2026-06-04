@@ -3,7 +3,6 @@ import { BracketEditor } from "@/components/bracket-editor";
 import { auth } from "@/lib/auth";
 import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import { getMatchBoardData } from "@/lib/match-board-data";
-import { MatchStage } from "@prisma/client";
 
 export default async function BracketPage() {
   const session = await auth();
@@ -38,17 +37,6 @@ export default async function BracketPage() {
     userId: session.user.id,
     leagueId: leagueContext.activeLeagueId,
   });
-
-  const knockoutStages = new Set([
-    MatchStage.ROUND_OF_32,
-    MatchStage.ROUND_OF_16,
-    MatchStage.QUARTER_FINAL,
-    MatchStage.SEMI_FINAL,
-    MatchStage.THIRD_PLACE,
-    MatchStage.FINAL,
-  ]);
-
-  const knockoutRows = boardData.filter((match) => knockoutStages.has(match.stage as MatchStage));
 
   const bracketMatches = boardData.map((match) => ({
     id: match.id,

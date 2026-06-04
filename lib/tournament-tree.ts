@@ -18,7 +18,7 @@ export type TournamentMatchLike = {
   stage: string;
   group: string | null;
   code: string | null;
-  kickoffAt?: Date;
+  kickoffAt?: Date | string;
   stadium?: string;
   city?: string;
   homeName: string;
