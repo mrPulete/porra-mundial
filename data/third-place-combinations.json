@@ -1,0 +1,4 @@
+{
+  "__doc": "Tabla oficial FIFA 2026 (Anexo C del reglamento): asignacion de los 8 mejores terceros a los cruces de R32. Clave = los 8 grupos que aportan tercero, en orden alfabetico y unidos (ej. 'ABCDEFGH'). Valor = mapa { codigo de partido R32 -> grupo del tercero que lo juega }. Codigos validos: W74, W77, W79, W80, W81, W82, W85, W87. Mientras 'combinations' este vacio, la app usa un emparejamiento valido calculado automaticamente (respeta las whitelists FIFA por slot) que evita huecos y terceros 9-12; al rellenar esta tabla con el Anexo C, la asignacion exacta de la FIFA tiene prioridad.",
+  "combinations": {}
+}

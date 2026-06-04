@@ -135,3 +135,15 @@ export function sameMatchPrediction(
 export function sameBonusAnswer(current: string, next: string) {
   return current === next;
 }
+
+// Las respuestas/soluciones de bonus se guardan como Json: o bien un string directo,
+// o un objeto { value: string }. Normaliza ambos casos a un string comparable ("" si no aplica).
+export function normalizeBonusAnswerValue(raw: unknown): string {
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (raw && typeof raw === "object" && typeof (raw as { value?: unknown }).value === "string") {
+    return (raw as { value: string }).value;
+  }
+  return "";
+}

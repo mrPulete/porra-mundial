@@ -302,6 +302,8 @@ export async function generatePredictionsForLeague(leagueId: string) {
     await prisma.matchPrediction.createMany({ data: rows.slice(index, index + 500) });
   }
 
+  await generateBonusAnswersForLeague(leagueId, league.members.map((member) => member.userId));
+
   await recalculateFinishedMatchPoints(leagueId);
 
   return {
@@ -309,6 +311,56 @@ export async function generatePredictionsForLeague(leagueId: string) {
     members: league.members.length,
     predictions: rows.length,
   };
+}
+
+async function generateBonusAnswersForLeague(leagueId: string, userIds: string[]) {
+  const questions = await prisma.bonusQuestion.findMany({
+    select: { id: true, options: true },
+  });
+
+  if (questions.length === 0 || userIds.length === 0) {
+    return;
+  }
+
+  await prisma.bonusAnswer.deleteMany({ where: { leagueId } });
+
+  const rows: Array<{
+    userId: string;
+    questionId: string;
+    leagueId: string;
+    answer: string;
+    pointsAwarded: number;
+    penaltyPoints: number;
+  }> = [];
+
+  for (const userId of userIds) {
+    for (const question of questions) {
+      const options = Array.isArray(question.options)
+        ? (question.options as Array<{ value?: unknown }>)
+            .map((opt) => (typeof opt.value === "string" ? opt.value : null))
+            .filter((v): v is string => v !== null)
+        : [];
+
+      if (options.length === 0) {
+        continue;
+      }
+
+      // Elección determinista por usuario+pregunta para que la simulación sea reproducible.
+      const index = hashString(userId + question.id) % options.length;
+      rows.push({
+        userId,
+        questionId: question.id,
+        leagueId,
+        answer: options[index],
+        pointsAwarded: 0,
+        penaltyPoints: 0,
+      });
+    }
+  }
+
+  if (rows.length > 0) {
+    await prisma.bonusAnswer.createMany({ data: rows });
+  }
 }
 
 export async function generatePredictionsForLeagues(leagueIds: string[]) {

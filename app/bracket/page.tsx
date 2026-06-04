@@ -1,51 +1,101 @@
-import { BracketBoard } from "@/components/bracket-board";
+import Link from "next/link";
+import { BracketEditor } from "@/components/bracket-editor";
+import { auth } from "@/lib/auth";
+import { resolveActiveLeagueForUser } from "@/lib/active-league";
+import { getMatchBoardData } from "@/lib/match-board-data";
 import { MatchStage } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 
 export default async function BracketPage() {
-  const matches = await prisma.match.findMany({
-    where: {
-      stage: {
-        in: [
-          MatchStage.ROUND_OF_32,
-          MatchStage.ROUND_OF_16,
-          MatchStage.QUARTER_FINAL,
-          MatchStage.SEMI_FINAL,
-          MatchStage.THIRD_PLACE,
-          MatchStage.FINAL,
-        ],
-      },
-    },
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-    },
-    orderBy: { roundOrder: "asc" },
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return (
+      <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8">
+        <h1 className="text-3xl font-black">Cuadro de eliminatorias</h1>
+        <p className="text-neutral-600 dark:text-neutral-300">Necesitas iniciar sesión para editar tus cruces.</p>
+        <Link href="/login" className="inline-block rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
+          Entrar
+        </Link>
+      </main>
+    );
+  }
+
+  const leagueContext = await resolveActiveLeagueForUser(session.user.id);
+  if (!leagueContext.activeLeagueId) {
+    return (
+      <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8">
+        <h1 className="text-3xl font-black">Cuadro de eliminatorias</h1>
+        <p className="text-neutral-600 dark:text-neutral-300">Tu sesión ya no coincide con un usuario válido. Vuelve a iniciar sesión.</p>
+        <Link href="/login" className="inline-block rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
+          Entrar
+        </Link>
+      </main>
+    );
+  }
+
+  const boardData = await getMatchBoardData({
+    mode: "predictions",
+    userId: session.user.id,
+    leagueId: leagueContext.activeLeagueId,
   });
 
-  const bracketMatches = matches.map((match) => ({
+  const knockoutStages = new Set([
+    MatchStage.ROUND_OF_32,
+    MatchStage.ROUND_OF_16,
+    MatchStage.QUARTER_FINAL,
+    MatchStage.SEMI_FINAL,
+    MatchStage.THIRD_PLACE,
+    MatchStage.FINAL,
+  ]);
+
+  const knockoutRows = boardData.filter((match) => knockoutStages.has(match.stage as MatchStage));
+
+  const bracketMatches = boardData.map((match) => ({
     id: match.id,
     stage: match.stage,
     group: match.group,
-    code: match.excelCode,
-    home: { name: match.homeTeam.name, flag: match.homeTeam.flagEmoji },
-    away: { name: match.awayTeam.name, flag: match.awayTeam.flagEmoji },
-    homeName: match.homeTeam.name,
-    homeFlag: match.homeTeam.flagEmoji,
-    homeTeamId: match.homeTeam.id,
-    awayName: match.awayTeam.name,
-    awayFlag: match.awayTeam.flagEmoji,
-    awayTeamId: match.awayTeam.id,
+    code: match.code,
+    kickoffAt: new Date(match.kickoffAt),
+    stadium: match.stadium,
+    city: match.city,
+    homeName: match.homeName,
+    homeFlag: match.homeFlag,
+    homeTeamId: match.homeTeamId,
+    awayName: match.awayName,
+    awayFlag: match.awayFlag,
+    awayTeamId: match.awayTeamId,
     isFinished: match.isFinished,
     homeScore: match.homeScore,
     awayScore: match.awayScore,
+    predictedQualifiedTeamId: match.predictedQualifiedTeamId,
   }));
+
+  const initialScores = Object.fromEntries(
+    boardData.map((match) => [
+      match.id,
+      {
+        home: match.predictedHome?.toString() ?? "",
+        away: match.predictedAway?.toString() ?? "",
+      },
+    ])
+  );
+
+  const initialQualifiers = Object.fromEntries(
+    boardData.map((match) => [match.id, match.predictedQualifiedTeamId ?? ""])
+  );
+
+  const isAdmin = session.user.role === "ADMIN";
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-8">
       <h1 className="text-3xl font-black">Cuadro de eliminatorias</h1>
-      <p className="text-neutral-600 dark:text-neutral-300">Vista visual de cruces hasta la final, sin marcadores.</p>
-      <BracketBoard matches={bracketMatches} visualOnly />
+      <p className="text-neutral-600 dark:text-neutral-300">Misma lógica que en pronósticos: código, hora, sede y resultado sincronizado.</p>
+      <BracketEditor
+        matches={bracketMatches}
+        initialScores={initialScores}
+        initialQualifiers={initialQualifiers}
+        readOnly={isAdmin}
+      />
     </main>
   );
 }

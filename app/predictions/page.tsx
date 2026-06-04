@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import { getScoringSettings } from "@/lib/scoring-settings";
 import { getMatchBoardData } from "@/lib/match-board-data";
-import { ActiveLeagueHero } from "@/components/active-league-hero";
+import { getPredictionEditPolicy } from "@/lib/prediction-edit-policy";
 import { UnifiedPredictionsBoard } from "@/components/unified-predictions-board";
 
 export default async function PredictionsPage() {
@@ -46,51 +46,28 @@ export default async function PredictionsPage() {
   }
 
   const leagueContext = await resolveActiveLeagueForUser(session.user.id);
+  const activeLeagueId = leagueContext.activeLeagueId;
 
-  if (!leagueContext.activeLeagueId) {
+  if (!activeLeagueId) {
     return (
-      <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8">
+      <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8">
         <h1 className="text-3xl font-black">Pronósticos</h1>
-        <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 dark:border-emerald-800/60 dark:bg-emerald-900/20">
-          <h2 className="text-2xl font-black">Bienvenido a la Porra del Mundial</h2>
-          <p className="mt-2 text-neutral-700 dark:text-neutral-200">Todavía no estás en una liga. Te guiamos para arrancar sin perderte:</p>
-          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-200">
-            <li>Únete o crea una liga</li>
-            <li>Completa tus pronósticos de fase de grupos y eliminatorias</li>
-            <li>Compite en el ranking con tu liga</li>
-          </ol>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link href="/leagues" className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
-              Empezar en Ligas
-            </Link>
-            <Link href="/rankings" className="rounded-xl bg-neutral-900 px-4 py-2 font-bold text-white dark:bg-neutral-100 dark:text-black">
-              Ver Ranking
-            </Link>
-            <Link href="/matches" className="rounded-xl border border-black/10 bg-white px-4 py-2 font-bold dark:border-white/10 dark:bg-neutral-900">
-              Explorar Partidos
-            </Link>
-          </div>
-        </section>
+        <p className="text-neutral-600 dark:text-neutral-300">Tu sesión ya no coincide con un usuario válido. Vuelve a iniciar sesión.</p>
+        <Link href="/login" className="inline-block rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white">
+          Ir a login
+        </Link>
       </main>
     );
   }
 
-  const activeLeagueId = leagueContext.activeLeagueId;
-  const activeLeague = leagueContext.userLeagues.find((league) => league.id === activeLeagueId);
-
-  const [scoringSettings, data, predictionsCount] = await Promise.all([
+  const [scoringSettings, data, editPolicy] = await Promise.all([
     getScoringSettings(),
     getMatchBoardData({
       mode: "predictions",
       userId: session.user.id,
       leagueId: activeLeagueId,
     }),
-    prisma.matchPrediction.count({
-      where: {
-        userId: session.user.id,
-        leagueId: activeLeagueId,
-      },
-    }),
+    getPredictionEditPolicy(),
   ]);
 
   const [leagueDraft, latestOfficialSubmission] = await Promise.all([
@@ -173,40 +150,13 @@ export default async function PredictionsPage() {
         </p>
       </div>
 
-      {activeLeague && (
-        <ActiveLeagueHero
-          name={activeLeague.name}
-          code={activeLeague.code}
-          description="Comparte este código con tus amigos para que entren en la misma liga antes de rellenar sus pronósticos."
-        />
-      )}
 
-      {predictionsCount === 0 && (
-        <section className="mb-6 rounded-3xl border border-amber-200 bg-amber-50/80 p-5 dark:border-amber-700/50 dark:bg-amber-900/20">
-          <p className="text-sm font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">Primer paso recomendado</p>
-          <h2 className="mt-1 text-xl font-black">Empieza por tus Pronósticos</h2>
-          <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
-            Acabas de entrar a una liga. Completa tus predicciones para aparecer en la clasificación y evitar quedarte atrás.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <a href="#predictions-board" className="rounded-xl bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
-              Empezar pronósticos
-            </a>
-            <Link href="/rankings" className="rounded-xl bg-neutral-900 px-4 py-2 font-bold text-white dark:bg-neutral-100 dark:text-black">
-              Ver clasificación de liga
-            </Link>
-            <Link href="/bracket" className="rounded-xl border border-black/10 bg-white px-4 py-2 font-bold dark:border-white/10 dark:bg-neutral-900">
-              Ver cruces
-            </Link>
-          </div>
-        </section>
-      )}
-      
       <div id="predictions-board">
         <UnifiedPredictionsBoard
           matches={data}
           bonusQuestions={bonusDataWithDraft}
           scoringSettings={scoringSettings}
+          editPolicy={editPolicy}
           initialLastOfficialSubmittedAt={latestOfficialSubmission?.submittedAt.toISOString() ?? null}
         />
       </div>

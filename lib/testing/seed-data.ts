@@ -29,6 +29,9 @@ async function clearDatabase() {
   await prisma.predictionHistory.deleteMany();
   await prisma.matchPrediction.deleteMany();
   await prisma.bonusAnswer.deleteMany();
+  // Tablas con FK hacia League que deben limpiarse antes de borrar ligas.
+  await prisma.userLeagueDraft.deleteMany();
+  await prisma.officialSubmission.deleteMany();
   await prisma.ranking.deleteMany();
   await prisma.bonusQuestion.deleteMany();
   await prisma.penaltyRule.deleteMany();

@@ -1,5 +1,6 @@
 import { MatchStage } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { canAccessAdminForLeague } from "@/lib/league-admin";
@@ -88,13 +89,23 @@ export async function POST(request: Request) {
         data: {
           homeScore: row.homeScore,
           awayScore: row.awayScore,
+          qualifiedTeamId: row.qualifiedTeamId ?? null,
           isFinished: true,
         },
       })
     )
   );
 
-  await recalculateFinishedMatchPoints(leagueId);
+  // Un resultado es un hecho global (la tabla Match es compartida por todas las ligas), así que se
+  // recalculan los puntos de TODAS las ligas, no solo la del admin que carga el resultado.
+  await recalculateFinishedMatchPoints();
+
+  // Invalida las páginas que muestran resultados/puntos para que el usuario vea
+  // los datos actualizados en el siguiente refresco sin esperar a que expire la caché.
+  revalidatePath("/predictions");
+  revalidatePath("/rankings");
+  revalidatePath("/matches");
+  revalidatePath("/bracket");
 
   return NextResponse.json({
     ok: true,

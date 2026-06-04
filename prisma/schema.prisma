@@ -95,6 +95,7 @@ model Match {
   awayTeamId      String
   homeScore       Int?
   awayScore       Int?
+  qualifiedTeamId String?
   isFinished      Boolean           @default(false)
   bonusMultiplier Int               @default(1)
   lockAt          DateTime
@@ -136,14 +137,15 @@ model StageScoring {
 }
 
 model BonusQuestion {
-  id           String        @id @default(cuid())
-  question     String
-  code         String?
-  options      Json
-  points       Int           @default(0)
-  deadline     DateTime
-  answers      BonusAnswer[]
-  history      PredictionHistory[]
+  id            String        @id @default(cuid())
+  question      String
+  code          String?
+  options       Json
+  points        Int           @default(0)
+  deadline      DateTime
+  correctAnswer Json?
+  answers       BonusAnswer[]
+  history       PredictionHistory[]
 }
 
 model BonusAnswer {

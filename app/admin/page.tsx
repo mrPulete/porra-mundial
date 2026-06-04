@@ -54,7 +54,7 @@ export default async function AdminPage({
 
   const leagueScoring = await getLeagueScoringConfig(activeLeagueId);
 
-  const [matches, history, leagueMembersRaw, submissions] = await Promise.all([
+  const [matches, history, leagueMembersRaw, submissions, bonusQuestions] = await Promise.all([
     prisma.match.findMany({
       include: {
         homeTeam: true,
@@ -117,7 +117,42 @@ export default async function AdminPage({
         submittedAt: true,
       },
     }),
+    prisma.bonusQuestion.findMany({
+      orderBy: [{ points: "desc" }, { question: "asc" }],
+      select: {
+        id: true,
+        question: true,
+        code: true,
+        options: true,
+        correctAnswer: true,
+      },
+    }),
   ]);
+
+  const normalizeBonusValue = (raw: unknown): string => {
+    if (typeof raw === "string") {
+      return raw;
+    }
+    if (raw && typeof raw === "object" && typeof (raw as { value?: unknown }).value === "string") {
+      return (raw as { value: string }).value;
+    }
+    return "";
+  };
+
+  const adminBonusQuestions = bonusQuestions.map((question) => ({
+    id: question.id,
+    question: question.question,
+    code: question.code,
+    options: Array.isArray(question.options)
+      ? (question.options as Array<{ value?: unknown; label?: unknown }>)
+          .filter((option) => option && typeof option.value === "string")
+          .map((option) => ({
+            value: String(option.value),
+            label: typeof option.label === "string" ? option.label : String(option.value),
+          }))
+      : [],
+    correctAnswer: normalizeBonusValue(question.correctAnswer),
+  }));
 
   const leagueMembers = (() => {
     if (!leagueMembersRaw) {
@@ -214,6 +249,7 @@ export default async function AdminPage({
           enabled: rule.enabled,
           sortOrder: rule.sortOrder,
         }))}
+        bonusQuestions={adminBonusQuestions}
         penaltyRules={leagueScoring.penaltyRules.map((rule) => ({
           id: rule.id,
           target: rule.target,

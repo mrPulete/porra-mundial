@@ -32,13 +32,22 @@ Los usuarios predicen resultados de partidos y preguntas bonus, compiten en liga
 
 ### Reglas de clasificación grupal
 
+Se aplica el orden de desempate **oficial FIFA 2026** (implementado en `sortTiedTeams` de `tournament-tree.ts`):
+
 1. Puntos (Victoria = 3, Empate = 1, Derrota = 0)
-2. Diferencia de goles
-3. Goles a favor
+2. **Entre los equipos empatados a puntos** (mini-liga head-to-head): puntos, diferencia de goles y goles a favor en los enfrentamientos directos
+3. Diferencia de goles en todos los partidos del grupo
+4. Goles a favor en todos los partidos del grupo
+5. Fair play y ranking FIFA (criterios de reserva)
+
+> Nota: el head-to-head entre empatados se evalúa **antes** que la diferencia de goles global, conforme al reglamento FIFA. Fair play y ranking FIFA están reservados como desempate final.
 
 ### Bracket — Emparejamientos R32
 
-Definidos en `tournament-tree.ts`: 1A vs 2B, 1C vs 3rd, etc. Los terceros clasificados se asignan por ranking de terceros.
+Definidos en `tournament-tree.ts`: 1A vs 2B, 1C vs 3rd, etc.
+
+- Los cruces de eliminatoria siguen el bracket oficial FIFA 2026 (verificado en `tests/unit/bracket-wiring.test.ts`).
+- **Mejores terceros**: clasifican los **8 mejores** (no 9º-12º). La asignación de cada tercero a su cruce de R32 usa la tabla oficial FIFA (`data/third-place-combinations.json`, Anexo C del reglamento) cuando está disponible; en su defecto se calcula un emparejamiento válido que respeta las whitelists FIFA por slot (sin huecos ni terceros no clasificados).
 
 ---
 

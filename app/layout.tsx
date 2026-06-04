@@ -3,7 +3,6 @@ import { Barlow_Condensed, Sora } from "next/font/google";
 import { NavBarV2 } from "@/components/nav-bar-v2";
 import { AppSessionProvider } from "@/components/session-provider";
 import { auth } from "@/lib/auth";
-import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import "./globals.css";
 
 const APP_VERSION = "0.3.1";
@@ -21,7 +20,7 @@ const bodyFont = Sora({
 
 export const metadata: Metadata = {
   title: "Porra Mundial",
-  description: "App de porra del Mundial con cruces, clasificación, ligas y panel de administración",
+  description: "App de porra del Mundial con cruces, clasificación y panel de administración",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -38,14 +37,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  let userLeagues: Array<{ id: string; name: string; code: string }> = [];
-  let activeLeagueId: string | undefined = undefined;
-
-  if (session?.user?.id) {
-    const leagueContext = await resolveActiveLeagueForUser(session.user.id);
-    userLeagues = leagueContext.userLeagues;
-    activeLeagueId = leagueContext.activeLeagueId ?? undefined;
-  }
 
   return (
     <html
@@ -61,7 +52,7 @@ export default async function RootLayout({
             >
               v{APP_VERSION}
             </p>
-            {session?.user?.id ? <NavBarV2 leagues={userLeagues} activeLeagueId={activeLeagueId} /> : null}
+            {session?.user?.id ? <NavBarV2 /> : null}
             {children}
           </div>
         </AppSessionProvider>

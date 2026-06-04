@@ -4,17 +4,10 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
-import { LeagueSelector } from "./league-selector";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 
-type League = {
-  id: string;
-  name: string;
-  code: string;
-};
-
-export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[]; activeLeagueId?: string }) {
+export function NavBarV2() {
   const { data } = useSession();
   const { isDark, toggle } = useDarkMode();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -50,12 +43,6 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
             Pronósticos
           </Link>
           <Link
-            href="/bracket"
-            className={navLinkClass("/bracket")}
-          >
-            Cruces
-          </Link>
-          <Link
             href="/rankings"
             className={navLinkClass("/rankings")}
           >
@@ -73,11 +60,6 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
 
         {/* Right Section */}
         <div className="flex items-center gap-2">
-          {/* League Selector */}
-          {data?.user && (
-            <LeagueSelector leagues={leagues} activeLeagueId={activeLeagueId} />
-          )}
-
           {data?.user && (
             <details className="relative hidden sm:block">
               <summary
@@ -155,13 +137,6 @@ export function NavBarV2({ leagues = [], activeLeagueId }: { leagues?: League[];
               className={`block ${navLinkClass("/predictions")} font-semibold`}
             >
               Pronósticos
-            </Link>
-            <Link
-              href="/bracket"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block ${navLinkClass("/bracket")} font-semibold`}
-            >
-              Cruces
             </Link>
             <Link
               href="/rankings"

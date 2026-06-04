@@ -1,6 +1,16 @@
+import thirdPlaceCombinations from "@/data/third-place-combinations.json";
+
 type ScoreLike = {
   home: string;
   away: string;
+};
+
+type GroupPlayedMatch = {
+  group: string;
+  homeName: string;
+  awayName: string;
+  homeScore: number;
+  awayScore: number;
 };
 
 export type TournamentMatchLike = {
@@ -8,6 +18,9 @@ export type TournamentMatchLike = {
   stage: string;
   group: string | null;
   code: string | null;
+  kickoffAt?: Date;
+  stadium?: string;
+  city?: string;
   homeName: string;
   homeFlag: string;
   homeTeamId?: string;
@@ -81,6 +94,8 @@ const ROUND_OF_16_SLOTS = [
   ["W96", "W85", "W87"],
 ] as const;
 
+// Cruces oficiales FIFA 2026 (Wikipedia / FIFA bracket): M97=W89/W90, M98=W93/W94,
+// M99=W91/W92, M100=W95/W96. Debe coincidir con QUARTER_FINAL_REFS en world-cup-data.ts.
 const QUARTER_FINAL_SLOTS = [
   ["W97", "W89", "W90"],
   ["W98", "W93", "W94"],
@@ -96,23 +111,36 @@ const SEMI_FINAL_SLOTS = [
 const THIRD_PLACE_SLOT = ["W103", "L101", "L102"] as const;
 const FINAL_SLOT = ["W104", "W101", "W102"] as const;
 
-function getScore(match: TournamentMatchLike, liveScores?: Record<string, ScoreLike>) {
-  if (match.isFinished && match.homeScore !== null && match.awayScore !== null) {
+// Cableado de eliminatorias expuesto como { code: [homeRef, awayRef] } para poder
+// verificar (en tests) que coincide con world-cup-data.ts y con el bracket oficial FIFA.
+export const KNOCKOUT_WIRING: Record<string, [string, string]> = Object.fromEntries(
+  [
+    ...ROUND_OF_32_SLOTS,
+    ...ROUND_OF_16_SLOTS,
+    ...QUARTER_FINAL_SLOTS,
+    ...SEMI_FINAL_SLOTS,
+    THIRD_PLACE_SLOT,
+    FINAL_SLOT,
+  ].map(([code, home, away]) => [code, [home, away]])
+);
+
+// fallbackToReal=true (defecto): usa resultado oficial cuando no hay predicción (bracket board).
+// fallbackToReal=false: solo usa predicciones del usuario (predictions board — Bug 3).
+function getScore(match: TournamentMatchLike, liveScores?: Record<string, ScoreLike>, fallbackToReal = true) {
+  const liveScore = liveScores?.[match.id];
+  if (liveScore && liveScore.home !== "" && liveScore.away !== "") {
+    const home = Number(liveScore.home);
+    const away = Number(liveScore.away);
+    if (!Number.isNaN(home) && !Number.isNaN(away)) {
+      return { home, away };
+    }
+  }
+
+  if (fallbackToReal && match.isFinished && match.homeScore !== null && match.awayScore !== null) {
     return { home: match.homeScore, away: match.awayScore };
   }
 
-  const liveScore = liveScores?.[match.id];
-  if (!liveScore || liveScore.home === "" || liveScore.away === "") {
-    return null;
-  }
-
-  const home = Number(liveScore.home);
-  const away = Number(liveScore.away);
-  if (Number.isNaN(home) || Number.isNaN(away)) {
-    return null;
-  }
-
-  return { home, away };
+  return null;
 }
 
 function makeSnapshot(name: string, flag: string, group: string, teamId?: string) {
@@ -197,15 +225,16 @@ function isPlaceholderLabel(label: string) {
   return /^W\d+$/.test(label) || /^L\d+$/.test(label) || /^[123][A-L]+$/.test(label) || label.startsWith("Ganador ");
 }
 
-function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
+function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>, fallbackToReal = true) {
   const rows = new Map<string, Map<string, GroupStanding>>();
+  const playedGroupMatches: GroupPlayedMatch[] = [];
 
   for (const match of matches) {
     if (match.stage !== "GROUP" || !match.group) {
       continue;
     }
 
-    const score = getScore(match, liveScores);
+    const score = getScore(match, liveScores, fallbackToReal);
     if (!score) {
       if (!rows.has(match.group)) {
         rows.set(match.group, new Map());
@@ -271,6 +300,14 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
     homeStanding.goalDifference = homeStanding.goalsFor - homeStanding.goalsAgainst;
     awayStanding.goalDifference = awayStanding.goalsFor - awayStanding.goalsAgainst;
 
+    playedGroupMatches.push({
+      group: match.group,
+      homeName: match.homeName,
+      awayName: match.awayName,
+      homeScore: score.home,
+      awayScore: score.away,
+    });
+
     if (score.home > score.away) {
       homeStanding.points += 3;
     } else if (score.home < score.away) {
@@ -286,22 +323,114 @@ function resolveGroupStandings(matches: TournamentMatchLike[], liveScores?: Reco
 
   const standings = new Map<string, GroupStanding[]>();
   for (const [group, groupRows] of rows.entries()) {
+    const groupMatches = playedGroupMatches.filter((item) => item.group === group);
     standings.set(
       group,
-      [...groupRows.values()].sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.goalDifference - a.goalDifference ||
-          b.goalsFor - a.goalsFor ||
-          a.name.localeCompare(b.name, "es")
-      )
+      sortGroupStandingsWithTieBreakers([...groupRows.values()], groupMatches)
     );
   }
 
   return standings;
 }
 
-function resolveGroupCompletion(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
+function getFairPlayPenalty(_team: GroupStanding) {
+  // TODO: conectar cuando exista fuente de tarjetas por equipo.
+  return 0;
+}
+
+function getFifaRanking(_team: GroupStanding) {
+  // TODO: conectar cuando exista ranking FIFA persistido por equipo.
+  return Number.POSITIVE_INFINITY;
+}
+
+function sortGroupStandingsWithTieBreakers(teams: GroupStanding[], groupMatches: GroupPlayedMatch[]) {
+  const groupedByPoints = new Map<number, GroupStanding[]>();
+
+  for (const team of teams) {
+    if (!groupedByPoints.has(team.points)) {
+      groupedByPoints.set(team.points, []);
+    }
+    groupedByPoints.get(team.points)!.push(team);
+  }
+
+  const sortedPoints = [...groupedByPoints.keys()].sort((a, b) => b - a);
+  const ordered: GroupStanding[] = [];
+
+  for (const points of sortedPoints) {
+    const tied = groupedByPoints.get(points) ?? [];
+
+    if (tied.length <= 1) {
+      ordered.push(...tied);
+      continue;
+    }
+
+    ordered.push(...sortTiedTeams(tied, groupMatches));
+  }
+
+  return ordered;
+}
+
+function sortTiedTeams(tiedTeams: GroupStanding[], groupMatches: GroupPlayedMatch[]) {
+  const nameSet = new Set(tiedTeams.map((team) => team.name));
+  const headToHeadMatches = groupMatches.filter(
+    (match) => nameSet.has(match.homeName) && nameSet.has(match.awayName)
+  );
+
+  const miniTable = new Map<
+    string,
+    {
+      points: number;
+      goalDifference: number;
+      goalsFor: number;
+    }
+  >();
+
+  for (const team of tiedTeams) {
+    miniTable.set(team.name, { points: 0, goalDifference: 0, goalsFor: 0 });
+  }
+
+  for (const match of headToHeadMatches) {
+    const home = miniTable.get(match.homeName);
+    const away = miniTable.get(match.awayName);
+    if (!home || !away) {
+      continue;
+    }
+
+    home.goalsFor += match.homeScore;
+    away.goalsFor += match.awayScore;
+    home.goalDifference += match.homeScore - match.awayScore;
+    away.goalDifference += match.awayScore - match.homeScore;
+
+    if (match.homeScore > match.awayScore) {
+      home.points += 3;
+    } else if (match.homeScore < match.awayScore) {
+      away.points += 3;
+    } else {
+      home.points += 1;
+      away.points += 1;
+    }
+  }
+
+  const sorted = [...tiedTeams].sort((a, b) => {
+    const aMini = miniTable.get(a.name) ?? { points: 0, goalDifference: 0, goalsFor: 0 };
+    const bMini = miniTable.get(b.name) ?? { points: 0, goalDifference: 0, goalsFor: 0 };
+
+    return (
+      bMini.points - aMini.points ||
+      bMini.goalDifference - aMini.goalDifference ||
+      bMini.goalsFor - aMini.goalsFor ||
+      b.goalDifference - a.goalDifference ||
+      b.goalsFor - a.goalsFor ||
+      getFairPlayPenalty(a) - getFairPlayPenalty(b) ||
+      getFifaRanking(a) - getFifaRanking(b) ||
+      a.name.localeCompare(b.name, "es")
+    );
+  });
+
+  return sorted;
+}
+
+function resolveGroupCompletion(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>, fallbackToReal = true) {
   const progress = new Map<string, { total: number; finished: number }>();
 
   for (const match of matches) {
@@ -316,7 +445,7 @@ function resolveGroupCompletion(matches: TournamentMatchLike[], liveScores?: Rec
     const row = progress.get(match.group)!;
     row.total += 1;
 
-    if (getScore(match, liveScores)) {
+    if (getScore(match, liveScores, fallbackToReal)) {
       row.finished += 1;
     }
   }
@@ -386,35 +515,25 @@ function buildRoundSlots(
   completedGroups: Set<string>,
   allGroupsComplete: boolean,
   thirdRanking: GroupStanding[],
-  usedThirds: Set<string>,
+  thirdAssignment: Map<string, GroupStanding>,
   liveScores?: Record<string, ScoreLike>,
-  liveQualifiers?: Record<string, string>
+  liveQualifiers?: Record<string, string>,
+  fallbackToReal = true
 ) {
   return slots.map(([code, homeRef, awayRef]) => {
     const match = matchesByCode.get(code);
 
-    const home = resolveSlotReference(homeRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
-    const away = resolveSlotReference(awayRef, lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds);
+    const home = resolveSlotReference(homeRef, lookup, standings, completedGroups, allGroupsComplete, thirdAssignment);
+    const away = resolveSlotReference(awayRef, lookup, standings, completedGroups, allGroupsComplete, thirdAssignment);
 
-    // Prefer dynamic resolution (group standings / third order / previous winners).
-    // If not available, fall back to static DB teams so admin bracket can still render advanced rounds.
-    const staticHome =
-      match && !isPlaceholderLabel(match.homeName)
-        ? makeSnapshot(match.homeName, match.homeFlag, match.group || "", match.homeTeamId)
-        : null;
-    const staticAway =
-      match && !isPlaceholderLabel(match.awayName)
-        ? makeSnapshot(match.awayName, match.awayFlag, match.group || "", match.awayTeamId)
-        : null;
-
-    const matchHome = home ?? staticHome;
-    const matchAway = away ?? staticAway;
+    const matchHome = home;
+    const matchAway = away;
 
     const winner = match
       ? outcomeWinner(
           matchHome,
           matchAway,
-          getScore(match, liveScores),
+          getScore(match, liveScores, fallbackToReal),
           liveQualifiers?.[match.id] ?? match.predictedQualifiedTeamId
         )
       : null;
@@ -423,7 +542,7 @@ function buildRoundSlots(
       ? outcomeLoser(
           matchHome,
           matchAway,
-          getScore(match, liveScores),
+          getScore(match, liveScores, fallbackToReal),
           liveQualifiers?.[match.id] ?? match.predictedQualifiedTeamId
         )
       : null;
@@ -455,8 +574,7 @@ function resolveSlotReference(
   standings: Map<string, GroupStanding[]>,
   completedGroups: Set<string>,
   allGroupsComplete: boolean,
-  thirdRanking: GroupStanding[],
-  usedThirds: Set<string>
+  thirdAssignment: Map<string, GroupStanding>
 ) {
   const direct = lookup.get(ref);
   if (direct) {
@@ -477,25 +595,110 @@ function resolveSlotReference(
     if (!allGroupsComplete) {
       return null;
     }
-
-    const allowedGroups = ref
-      .slice(1)
-      .split("")
-      .filter((group) => /[A-L]/.test(group));
-
-    for (const row of thirdRanking) {
-      if (usedThirds.has(row.group)) {
-        continue;
-      }
-
-      if (allowedGroups.includes(row.group)) {
-        usedThirds.add(row.group);
-        return row;
-      }
-    }
+    // Asignación de terceros precalculada (tabla oficial FIFA o emparejamiento válido).
+    return thirdAssignment.get(ref) ?? null;
   }
 
   return null;
+}
+
+// Slots de R32 que reciben un tercero clasificado, en orden, con su lista de grupos permitidos
+// (whitelist FIFA por slot, derivada de ROUND_OF_32_SLOTS).
+export const THIRD_PLACE_SLOTS: Array<{ code: string; ref: string; allowed: string[] }> = [];
+for (const [code, home, away] of ROUND_OF_32_SLOTS) {
+  const ref = [home, away].find((value) => value.startsWith("3"));
+  if (ref) {
+    THIRD_PLACE_SLOTS.push({
+      code,
+      ref,
+      allowed: ref
+        .slice(1)
+        .split("")
+        .filter((group) => /[A-L]/.test(group)),
+    });
+  }
+}
+
+const THIRD_PLACE_COMBINATIONS = (thirdPlaceCombinations as { combinations?: Record<string, Record<string, string>> })
+  .combinations ?? {};
+
+// Empareja los grupos que aportan tercero con los slots de R32 respetando las whitelists.
+// Backtracking determinista (slots en orden fijo, grupos en orden alfabético) ⇒ siempre devuelve
+// la misma asignación válida para un mismo conjunto de grupos. Devuelve null si no hay matching.
+export function matchThirdsToSlots(qualifyingGroups: string[]): Map<string, string> | null {
+  const sortedGroups = [...qualifyingGroups].sort();
+  const assignment = new Map<string, string>();
+  const used = new Set<string>();
+
+  const place = (index: number): boolean => {
+    if (index === THIRD_PLACE_SLOTS.length) {
+      return true;
+    }
+    const slot = THIRD_PLACE_SLOTS[index];
+    for (const group of sortedGroups) {
+      if (used.has(group) || !slot.allowed.includes(group)) {
+        continue;
+      }
+      used.add(group);
+      assignment.set(slot.ref, group);
+      if (place(index + 1)) {
+        return true;
+      }
+      used.delete(group);
+      assignment.delete(slot.ref);
+    }
+    return false;
+  };
+
+  return place(0) ? assignment : null;
+}
+
+// Resuelve qué tercero (fila de ranking) juega en cada slot de R32. Prioriza la tabla oficial FIFA
+// (data/third-place-combinations.json) y, si no hay entrada para esa combinación de grupos, usa el
+// emparejamiento válido calculado. Recorta a los 8 mejores terceros (no 9°-12°).
+function resolveThirdAssignment(thirdRanking: GroupStanding[]): Map<string, GroupStanding> {
+  const result = new Map<string, GroupStanding>();
+  const top8 = thirdRanking.slice(0, 8);
+  if (top8.length < THIRD_PLACE_SLOTS.length) {
+    return result;
+  }
+
+  const byGroup = new Map(top8.map((row) => [row.group, row]));
+  const groups = top8.map((row) => row.group);
+  const key = [...groups].sort().join("");
+
+  let groupByRef: Map<string, string> | null = null;
+
+  const officialEntry = THIRD_PLACE_COMBINATIONS[key];
+  if (officialEntry) {
+    const fromOfficial = new Map<string, string>();
+    for (const slot of THIRD_PLACE_SLOTS) {
+      const group = officialEntry[slot.code] ?? officialEntry[slot.ref];
+      if (group) {
+        fromOfficial.set(slot.ref, group);
+      }
+    }
+    if (fromOfficial.size === THIRD_PLACE_SLOTS.length) {
+      groupByRef = fromOfficial;
+    }
+  }
+
+  if (!groupByRef) {
+    groupByRef = matchThirdsToSlots(groups);
+  }
+
+  if (!groupByRef) {
+    return result;
+  }
+
+  for (const [ref, group] of groupByRef) {
+    const row = byGroup.get(group);
+    if (row) {
+      result.set(ref, row);
+    }
+  }
+
+  return result;
 }
 
 function buildThirdRankingFromStandings(standings: Map<string, GroupStanding[]>) {
@@ -537,16 +740,17 @@ function applyThirdOrderOverride(thirdRanking: ThirdPlaceStanding[], thirdGroupO
   return ordered;
 }
 
-export function buildGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>) {
-  return resolveGroupStandings(matches, liveScores);
+export function buildGroupStandings(matches: TournamentMatchLike[], liveScores?: Record<string, ScoreLike>, fallbackToReal = true) {
+  return resolveGroupStandings(matches, liveScores, fallbackToReal);
 }
 
 export function buildThirdPlaceRanking(
   matches: TournamentMatchLike[],
   liveScores?: Record<string, ScoreLike>,
-  thirdGroupOrderOverride?: string[]
+  thirdGroupOrderOverride?: string[],
+  fallbackToReal = true
 ) {
-  const standings = resolveGroupStandings(matches, liveScores);
+  const standings = resolveGroupStandings(matches, liveScores, fallbackToReal);
   const defaultRanking = buildThirdRankingFromStandings(standings);
   return applyThirdOrderOverride(defaultRanking, thirdGroupOrderOverride);
 }
@@ -555,7 +759,8 @@ export function buildBracketTree(
   matches: TournamentMatchLike[],
   liveScores?: Record<string, ScoreLike>,
   thirdGroupOrderOverride?: string[],
-  liveQualifiers?: Record<string, string>
+  liveQualifiers?: Record<string, string>,
+  fallbackToReal = true
 ) {
   const matchesByCode = new Map<string, TournamentMatchLike>();
   for (const match of matches) {
@@ -564,12 +769,15 @@ export function buildBracketTree(
     }
   }
 
-  const standings = resolveGroupStandings(matches, liveScores);
-  const { completedGroups, allGroupsComplete } = resolveGroupCompletion(matches, liveScores);
+  const standings = resolveGroupStandings(matches, liveScores, fallbackToReal);
+  const { completedGroups, allGroupsComplete } = resolveGroupCompletion(matches, liveScores, fallbackToReal);
   const defaultThirdRanking = buildThirdRankingFromStandings(standings);
-  const thirdRanking = applyThirdOrderOverride(defaultThirdRanking, thirdGroupOrderOverride);
+  const fullThirdRanking = applyThirdOrderOverride(defaultThirdRanking, thirdGroupOrderOverride);
+  // Solo los 8 mejores terceros clasifican; las etiquetas ("N° mejor tercero") y la asignación
+  // a slots se calculan sobre este recorte.
+  const thirdRanking = fullThirdRanking.slice(0, 8);
+  const thirdAssignment = resolveThirdAssignment(fullThirdRanking);
 
-  const usedThirds = new Set<string>();
   const lookup = new Map<string, TeamSnapshot | null>();
 
   const roundOf32 = buildRoundSlots(
@@ -580,9 +788,10 @@ export function buildBracketTree(
     completedGroups,
     allGroupsComplete,
     thirdRanking,
-    usedThirds,
+    thirdAssignment,
     liveScores,
-    liveQualifiers
+    liveQualifiers,
+    fallbackToReal
   );
   const roundOf16 = buildRoundSlots(
     ROUND_OF_16_SLOTS,
@@ -592,9 +801,10 @@ export function buildBracketTree(
     completedGroups,
     allGroupsComplete,
     thirdRanking,
-    usedThirds,
+    thirdAssignment,
     liveScores,
-    liveQualifiers
+    liveQualifiers,
+    fallbackToReal
   );
   const quarterFinals = buildRoundSlots(
     QUARTER_FINAL_SLOTS,
@@ -604,9 +814,10 @@ export function buildBracketTree(
     completedGroups,
     allGroupsComplete,
     thirdRanking,
-    usedThirds,
+    thirdAssignment,
     liveScores,
-    liveQualifiers
+    liveQualifiers,
+    fallbackToReal
   );
   const semiFinals = buildRoundSlots(
     SEMI_FINAL_SLOTS,
@@ -616,24 +827,25 @@ export function buildBracketTree(
     completedGroups,
     allGroupsComplete,
     thirdRanking,
-    usedThirds,
+    thirdAssignment,
     liveScores,
-    liveQualifiers
+    liveQualifiers,
+    fallbackToReal
   );
 
   const thirdPlaceMatch: BracketMatchView = {
     code: THIRD_PLACE_SLOT[0],
-    label: `${getSlotReferenceLabel(THIRD_PLACE_SLOT[1], resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)} vs ${getSlotReferenceLabel(THIRD_PLACE_SLOT[2], resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)}`,
-    home: resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
-    away: resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
+    label: `${getSlotReferenceLabel(THIRD_PLACE_SLOT[1], resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment), thirdRanking)} vs ${getSlotReferenceLabel(THIRD_PLACE_SLOT[2], resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment), thirdRanking)}`,
+    home: resolveSlotReference(THIRD_PLACE_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment),
+    away: resolveSlotReference(THIRD_PLACE_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment),
     winner: null,
   };
 
   const finalMatch: BracketMatchView = {
     code: FINAL_SLOT[0],
-    label: `${getSlotReferenceLabel(FINAL_SLOT[1], resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)} vs ${getSlotReferenceLabel(FINAL_SLOT[2], resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds), thirdRanking)}`,
-    home: resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
-    away: resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdRanking, usedThirds),
+    label: `${getSlotReferenceLabel(FINAL_SLOT[1], resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment), thirdRanking)} vs ${getSlotReferenceLabel(FINAL_SLOT[2], resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment), thirdRanking)}`,
+    home: resolveSlotReference(FINAL_SLOT[1], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment),
+    away: resolveSlotReference(FINAL_SLOT[2], lookup, standings, completedGroups, allGroupsComplete, thirdAssignment),
     winner: null,
   };
 

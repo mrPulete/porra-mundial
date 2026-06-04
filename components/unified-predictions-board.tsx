@@ -5,6 +5,7 @@ import { buildBracketTree, buildGroupStandings, buildThirdPlaceRanking, type Tea
 import type { ScoringSettings } from "@/lib/scoring-settings";
 import type { PredictionEditPolicy } from "@/lib/prediction-edit-policy";
 import TeamLink from "./team/team-link";
+import { BracketBoard } from "@/components/bracket-board";
 
 const DEFAULT_SCORING: ScoringSettings = {
   homeGoalsHit: 1,
@@ -98,15 +99,6 @@ const MAIN_SECTIONS = [
 ] as const;
 
 const MAIN_SECTIONS_WITHOUT_QUESTIONS = MAIN_SECTIONS.filter((section) => section.value !== "QUESTIONS");
-
-const KNOCKOUT_SUBTABS = [
-  { value: "round_of_32", stage: "ROUND_OF_32", label: "32avos" },
-  { value: "round_of_16", stage: "ROUND_OF_16", label: "16avos" },
-  { value: "quarter_final", stage: "QUARTER_FINAL", label: "Cuartos" },
-  { value: "semi_final", stage: "SEMI_FINAL", label: "Semis" },
-  { value: "third_place", stage: "THIRD_PLACE", label: "3er puesto" },
-  { value: "final", stage: "FINAL", label: "Final" },
-] as const;
 
 const THIRDS_STORAGE_KEY = "porra.thirds.order";
 
@@ -303,7 +295,6 @@ export function UnifiedPredictionsBoard({
   const initialOfficialBonusValues = useMemo(() => buildOfficialBonusAnswers(bonusQuestions), [bonusQuestions]);
   const [activeSection, setActiveSection] = useState<(typeof MAIN_SECTIONS)[number]["value"]>("GROUPS");
   const [activeGroup, setActiveGroup] = useState("");
-  const [activeKnockoutTab, setActiveKnockoutTab] = useState<(typeof KNOCKOUT_SUBTABS)[number]["value"]>("round_of_32");
   const [values, setValues] = useState<Record<string, { home: string; away: string }>>(() => initialScoreValues);
   const [qualifierValues, setQualifierValues] = useState<Record<string, string>>(() => initialQualifierValues);
   const [thirdOrder, setThirdOrder] = useState<string[]>([]);
@@ -380,7 +371,9 @@ export function UnifiedPredictionsBoard({
   }, [activeGroup, availableGroups]);
 
   const groupStandings = useMemo(() => {
-    return buildGroupStandings(matches, values);
+    // fallbackToReal=false: las clasificaciones reflejan las predicciones del usuario, no los
+    // resultados reales. Sin predicción para un partido, ese partido no cuenta en la tabla.
+    return buildGroupStandings(matches, values, false);
   }, [matches, values]);
 
   const selectedGroupMatches = useMemo(() => {
@@ -460,70 +453,68 @@ export function UnifiedPredictionsBoard({
   }, [thirdOrder]);
 
   const thirdRanking = useMemo(() => {
-    return buildThirdPlaceRanking(matches, values, thirdOrder);
+    return buildThirdPlaceRanking(matches, values, thirdOrder, false);
   }, [matches, values, thirdOrder]);
 
   const bracket = useMemo(() => {
-    return buildBracketTree(matches, values, thirdOrder, qualifierValues);
+    // fallbackToReal=false: el bracket refleja las predicciones del usuario, no los resultados reales.
+    return buildBracketTree(matches, values, thirdOrder, qualifierValues, false);
   }, [matches, values, thirdOrder, qualifierValues]);
 
-  const knockoutMatchesByCode = useMemo(() => {
-    return new Map(matches.filter((match) => Boolean(match.code)).map((match) => [match.code as string, match]));
+  const matchIdByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const match of matches) {
+      if (match.code) {
+        map.set(match.code, match.id);
+      }
+    }
+    return map;
   }, [matches]);
 
-  const selectedKnockoutRound = useMemo(() => {
-    return bracket.rounds.find((round) => round.key === activeKnockoutTab) ?? null;
-  }, [bracket.rounds, activeKnockoutTab]);
+  const fillableKnockoutMatchIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const round of bracket.rounds) {
+      for (const slot of round.matches) {
+        const matchId = matchIdByCode.get(slot.code);
+        if (!matchId) {
+          continue;
+        }
 
-  const groupedKnockoutByDate = useMemo(() => {
-    if (!selectedKnockoutRound) {
-      return [];
-    }
-
-    const groups = new Map<
-      string,
-      {
-        timestamp: number;
-        rows: { match: (typeof selectedKnockoutRound.matches)[number]; sourceMatch?: MatchRow }[];
+        if (slot.home?.teamId && slot.away?.teamId) {
+          ids.add(matchId);
+        }
       }
-    >();
-
-    for (const match of selectedKnockoutRound.matches) {
-      const sourceMatch = knockoutMatchesByCode.get(match.code);
-      const label = sourceMatch ? formatMatchdayLabel(sourceMatch.kickoffAt) : "Sin fecha";
-      const timestamp = sourceMatch ? new Date(sourceMatch.kickoffAt).getTime() : Number.MAX_SAFE_INTEGER;
-
-      if (!groups.has(label)) {
-        groups.set(label, { timestamp, rows: [] });
-      }
-
-      const entry = groups.get(label)!;
-      entry.timestamp = Math.min(entry.timestamp, timestamp);
-      entry.rows.push({ match, sourceMatch });
     }
-
-    for (const [, entry] of groups.entries()) {
-      entry.rows.sort((a, b) => {
-        if (!a.sourceMatch && !b.sourceMatch) return a.match.code.localeCompare(b.match.code, "es");
-        if (!a.sourceMatch) return 1;
-        if (!b.sourceMatch) return -1;
-        return new Date(a.sourceMatch.kickoffAt).getTime() - new Date(b.sourceMatch.kickoffAt).getTime();
-      });
-    }
-
-    return Array.from(groups.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp)
-      .map(([label, entry]) => [label, entry.rows] as const);
-  }, [selectedKnockoutRound, knockoutMatchesByCode]);
+    return ids;
+  }, [bracket.rounds, matchIdByCode]);
 
   const selectedKnockoutMatches = useMemo(() => {
-    const tab = KNOCKOUT_SUBTABS.find((item) => item.value === activeKnockoutTab);
-    if (!tab) {
-      return [];
-    }
+    return matches.filter((match) => match.stage !== "GROUP");
+  }, [matches]);
 
-    return matches.filter((match) => match.stage === tab.stage);
-  }, [matches, activeKnockoutTab]);
+  const bracketMatches = useMemo(
+    () =>
+      matches.map((match) => ({
+        id: match.id,
+        stage: match.stage,
+        group: match.group,
+        code: match.code,
+        kickoffAt: new Date(match.kickoffAt),
+        stadium: match.stadium,
+        city: match.city,
+        homeName: match.homeName,
+        homeFlag: match.homeFlag,
+        homeTeamId: match.homeTeamId,
+        awayName: match.awayName,
+        awayFlag: match.awayFlag,
+        awayTeamId: match.awayTeamId,
+        isFinished: match.isFinished,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        predictedQualifiedTeamId: match.predictedQualifiedTeamId,
+      })),
+    [matches]
+  );
 
   const matchesById = useMemo(() => {
     return new Map(matches.map((match) => [match.id, match]));
@@ -535,6 +526,10 @@ export function UnifiedPredictionsBoard({
   }).length;
 
   const pendingKnockoutCount = selectedKnockoutMatches.filter((match) => {
+    if (!fillableKnockoutMatchIds.has(match.id)) {
+      return false;
+    }
+
     const value = values[match.id];
     return !value || value.home === "" || value.away === "";
   }).length;
@@ -543,12 +538,16 @@ export function UnifiedPredictionsBoard({
 
   const editableMatches = useMemo(() => {
     return matches.filter((match) => {
+      // Un partido con resultado oficial no se puede predecir ni editar.
+      if (match.isFinished) {
+        return false;
+      }
       if (match.stage === "GROUP") {
         return canEditGroupStage;
       }
-      return canEditKnockoutStage;
+      return canEditKnockoutStage && fillableKnockoutMatchIds.has(match.id);
     });
-  }, [matches, canEditGroupStage, canEditKnockoutStage]);
+  }, [matches, canEditGroupStage, canEditKnockoutStage, fillableKnockoutMatchIds]);
 
   const totalEditableResults = editableMatches.length;
   const pendingEditableResults = editableMatches.filter((match) => {
@@ -710,8 +709,8 @@ export function UnifiedPredictionsBoard({
       return;
     }
 
-    const nextScores: Record<string, { home: string; away: string }> = {};
-    const nextQualifiers: Record<string, string> = {};
+    const nextScores: Record<string, { home: string; away: string }> = { ...values };
+    const nextQualifiers: Record<string, string> = { ...qualifierValues };
 
     for (const match of matches) {
       const canEditThisMatch = match.stage === "GROUP" ? canEditGroupStage : canEditKnockoutStage;
@@ -722,16 +721,32 @@ export function UnifiedPredictionsBoard({
       const home = String(randomInt(0, 4));
       const away = String(randomInt(0, 4));
       nextScores[match.id] = { home, away };
-
-      if (isKnockoutStage(match.stage) && home === away) {
-        nextQualifiers[match.id] = Math.random() < 0.5 ? match.homeTeamId : match.awayTeamId;
-      } else {
-        nextQualifiers[match.id] = "";
-      }
     }
 
-    setValues((prev) => ({ ...prev, ...nextScores }));
-    setQualifierValues((prev) => ({ ...prev, ...nextQualifiers }));
+    const simulatedBracket = buildBracketTree(bracketMatches, nextScores, thirdOrder, nextQualifiers);
+    const simulatedByCode = new Map(
+      simulatedBracket.rounds.flatMap((round) => round.matches.map((slot) => [slot.code, slot] as const))
+    );
+
+    for (const match of matches) {
+      const canEditThisMatch = match.stage === "GROUP" ? canEditGroupStage : canEditKnockoutStage;
+      if (!canEditThisMatch || !isKnockoutStage(match.stage)) {
+        continue;
+      }
+
+      const score = nextScores[match.id];
+      if (!score || score.home === "" || score.away === "" || score.home !== score.away) {
+        nextQualifiers[match.id] = "";
+        continue;
+      }
+
+      const slot = match.code ? simulatedByCode.get(match.code) : undefined;
+      const candidates = [slot?.home?.teamId, slot?.away?.teamId].filter((teamId): teamId is string => Boolean(teamId));
+      nextQualifiers[match.id] = candidates.length > 0 ? candidates[randomInt(0, candidates.length - 1)] : "";
+    }
+
+    setValues(nextScores);
+    setQualifierValues(nextQualifiers);
 
     if (showQuestions) {
       setBonusAnswers((prev) => {
@@ -763,6 +778,51 @@ export function UnifiedPredictionsBoard({
     }
 
     await persistSubmission();
+  };
+
+  const resetAllUserResults = async () => {
+    if (readOnly) {
+      return;
+    }
+
+    const fullyUnlocked = submissionWindowStatus === "OPEN" && canEditGroupStage && canEditKnockoutStage;
+    if (!fullyUnlocked) {
+      return;
+    }
+
+    const confirmed = window.confirm("Se borrarán todos tus resultados y clasificados guardados. ¿Continuar?");
+    if (!confirmed) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/predictions/reset", {
+        method: "POST",
+      });
+
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(data?.error || "No se pudo resetear la porra");
+      }
+
+      const emptyScores = Object.fromEntries(matches.map((match) => [match.id, { home: "", away: "" }]));
+      const emptyQualifiers = Object.fromEntries(matches.map((match) => [match.id, ""]));
+
+      setValues(emptyScores);
+      setQualifierValues(emptyQualifiers);
+      setOfficialValues(emptyScores);
+      setOfficialQualifierValues(emptyQualifiers);
+      setSubmissionStatus("OFFICIAL");
+      setLastOfficialSubmittedAt(new Date().toISOString());
+      setMessage("✅ Todos tus resultados han sido reseteados");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Error de red");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedGroupStandings = activeGroup ? groupStandings.get(activeGroup) ?? [] : [];
@@ -886,6 +946,14 @@ export function UnifiedPredictionsBoard({
     !readOnly && !isLocked && ((activeSection === "GROUPS" && canEditGroupStage) || (activeSection === "KNOCKOUT" && canEditKnockoutStage));
   const canSaveQuestions = !readOnly && !isLocked && showQuestions && activeSection === "QUESTIONS";
 
+  const isThirdOrderManualOverride = useMemo(() => {
+    const auto = defaultThirdRanking.map((row) => row.group);
+    if (auto.length !== thirdOrder.length) {
+      return false;
+    }
+    return auto.some((group, index) => group !== thirdOrder[index]);
+  }, [defaultThirdRanking, thirdOrder]);
+
   return (
     <div className="space-y-4">
       <div className="flex gap-1 overflow-x-auto rounded-lg border border-black/10 bg-neutral-100 p-1 dark:border-white/10 dark:bg-neutral-800">
@@ -1001,24 +1069,6 @@ export function UnifiedPredictionsBoard({
           </div>
         )}
 
-        {activeSection === "KNOCKOUT" && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {KNOCKOUT_SUBTABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setActiveKnockoutTab(tab.value)}
-                className={`rounded px-2.5 py-1 text-xs font-bold ${
-                  activeKnockoutTab === tab.value
-                    ? "bg-emerald-700 text-white"
-                    : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {activeSection === "GROUPS" && activeGroup && (
           <div className="mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-50/70 p-3 dark:border-emerald-400/20 dark:bg-emerald-500/10">
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -1087,6 +1137,12 @@ export function UnifiedPredictionsBoard({
                 Restaurar automático
               </button>
             </div>
+
+            {isThirdOrderManualOverride && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100">
+                Orden manual activo: no coincide con los desempates automáticos. Este orden se propaga en vivo a los cruces y cálculos.
+              </div>
+            )}
 
             {thirdRanking.length === 0 ? (
               <p className="text-sm text-neutral-500">Aún no hay terceros calculables. Mete algunos marcadores de grupos primero.</p>
@@ -1223,7 +1279,6 @@ export function UnifiedPredictionsBoard({
           </div>
         ) : activeSection === "KNOCKOUT" ? (
           <div className="space-y-4">
-            {/* Scoring summary */}
             <div className="rounded-xl border border-blue-500/20 bg-blue-50/70 p-3 dark:border-blue-400/20 dark:bg-blue-500/10">
               <p className="text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Sistema de puntuación · Fase eliminatoria</p>
               <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-blue-800/80 dark:text-blue-200/80">
@@ -1232,136 +1287,16 @@ export function UnifiedPredictionsBoard({
                 <span>Clasificado acertado: <span className="font-black">+{scoringSettings.knockoutQualifierHit} pts</span></span>
               </div>
             </div>
-            {groupedKnockoutByDate.length > 0 ? (
-              groupedKnockoutByDate.map(([dayLabel, dayRows]) => (
-                <div key={dayLabel}>
-                  <h4 className="mb-2 text-xs font-bold uppercase text-neutral-500 dark:text-neutral-400">{dayLabel}</h4>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {dayRows.map(({ match, sourceMatch }) => {
-                      const selectedScore = sourceMatch ? values[sourceMatch.id] : undefined;
-                      const hasPrediction = selectedScore?.home !== undefined && selectedScore?.away !== undefined && selectedScore.home !== "" && selectedScore.away !== "";
 
-                      return (
-                        <div
-                          key={match.code}
-                          className={`group relative rounded-2xl border bg-neutral-50 p-4 text-left transition-shadow dark:bg-neutral-800/50 ${
-                            !readOnly && hasPrediction
-                              ? "border-emerald-400 dark:border-emerald-500/40"
-                              : "border-black/5 dark:border-white/10"
-                          }`}
-                        >
-                          {!readOnly && hasPrediction && (
-                            <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] text-white">✓</span>
-                          )}
-
-                          <p className="mb-1 text-center text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-                            {match.code}
-                          </p>
-                          <p className="mb-3 text-center text-[10px] text-neutral-400 dark:text-neutral-500">{match.label}</p>
-                          {sourceMatch && (
-                            <p className="mb-3 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-                              {new Date(sourceMatch.kickoffAt).toLocaleDateString("es-ES", { month: "short", day: "numeric" }).toUpperCase()}
-                              {" · "}
-                              {new Date(sourceMatch.kickoffAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                              {" · "}
-                              {sourceMatch.stadium || "Sede por confirmar"}
-                              {sourceMatch.city ? `, ${sourceMatch.city}` : ""}
-                            </p>
-                          )}
-
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
-                              {match.home && sourceMatch ? (
-                                <>
-                                  <TeamLink teamId={sourceMatch.homeTeamCode} name={match.home.name} flag={match.home.flag} className="text-xs font-bold leading-tight" />
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-2xl leading-none">{match.home?.flag ?? "❓"}</span>
-                                  <span className="text-xs font-bold leading-tight">{match.home?.name ?? "Por definir"}</span>
-                                </>
-                              )}
-                            </div>
-
-                            <button
-                              type="button"
-                              disabled={readOnly || isLocked || !sourceMatch || !canEditKnockoutStage}
-                              onClick={() => {
-                                if (!readOnly && !isLocked && sourceMatch && canEditKnockoutStage) {
-                                  openResultModal({
-                                    id: sourceMatch.id,
-                                    stage: sourceMatch.stage,
-                                    kickoffAt: sourceMatch.kickoffAt,
-                                    stadium: sourceMatch.stadium,
-                                    city: sourceMatch.city,
-                                    homeTeam: match.home,
-                                    awayTeam: match.away,
-                                  });
-                                }
-                              }}
-                              className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 disabled:cursor-default dark:hover:bg-emerald-900/20"
-                            >
-                              <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
-                                  {hasPrediction ? selectedScore!.home : ""}
-                                </div>
-                              </div>
-                              <span className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-black tracking-wide text-white">VS</span>
-                              <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-200/80 text-sm font-black dark:bg-neutral-700">
-                                  {hasPrediction ? selectedScore!.away : ""}
-                                </div>
-                              </div>
-                            </button>
-
-                            <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
-                              {match.away && sourceMatch ? (
-                                <>
-                                  <TeamLink teamId={sourceMatch.awayTeamCode} name={match.away.name} flag={match.away.flag} className="text-xs font-bold leading-tight" />
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-2xl leading-none">{match.away?.flag ?? "❓"}</span>
-                                  <span className="text-xs font-bold leading-tight">{match.away?.name ?? "Por definir"}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {sourceMatch?.isFinished && (
-                            <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-                              Real {formatFinalScoreTag(sourceMatch)}
-                            </p>
-                          )}
-
-                          {!readOnly && sourceMatch?.isFinished && hasPrediction && (
-                            <div className="mt-3 rounded-lg bg-neutral-200/40 px-2 py-1.5 text-center dark:bg-neutral-700/40">
-                              {(() => {
-                                const { points, breakdown } = calculateMatchPoints(
-                                  { home: Number(selectedScore!.home), away: Number(selectedScore!.away) },
-                                  { home: sourceMatch.homeScore, away: sourceMatch.awayScore },
-                                  scoringSettings
-                                );
-                                return (
-                                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                                    {points > 0 ? `+${points} pts ` : "0 pts "}
-                                    <span className="text-[10px] font-normal text-neutral-600 dark:text-neutral-400">
-                                      {breakdown}
-                                    </span>
-                                  </p>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-neutral-500">No hay cruces en esta ronda.</p>
-            )}
+            <BracketBoard
+              matches={bracketMatches}
+              liveScores={values}
+              liveQualifiers={qualifierValues}
+              thirdOrderOverride={thirdOrder}
+              onLiveScoresChange={setValues}
+              onLiveQualifiersChange={setQualifierValues}
+              scoringSettings={scoringSettings}
+            />
           </div>
         ) : selectedGroupMatches.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-center">
@@ -1506,6 +1441,19 @@ export function UnifiedPredictionsBoard({
               )}
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={resetAllUserResults}
+                disabled={
+                  loading ||
+                  readOnly ||
+                  submissionWindowStatus !== "OPEN" ||
+                  !canEditGroupStage ||
+                  !canEditKnockoutStage
+                }
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+              >
+                Reset total resultados
+              </button>
               <button
                 onClick={fillRandomPredictions}
                 disabled={loading || submissionWindowStatus !== "OPEN" || (!canEditGroupStage && !canEditKnockoutStage)}

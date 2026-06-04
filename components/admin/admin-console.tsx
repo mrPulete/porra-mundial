@@ -74,6 +74,14 @@ type UserSubmissionSummary = {
   hasOfficialSubmission: boolean;
 };
 
+type BonusQuestionItem = {
+  id: string;
+  question: string;
+  code: string | null;
+  options: Array<{ value: string; label: string }>;
+  correctAnswer: string;
+};
+
 type DemoAction =
   | "GENERATE_DEMO_USERS"
   | "GENERATE_DEMO_LEAGUES"
@@ -118,6 +126,7 @@ export function AdminConsole({
   activeLeagueId,
   userSubmissionSummaries,
   demoToolsEnabled,
+  bonusQuestions,
 }: {
   currentTimestamp: number;
   matches: AdminMatch[];
@@ -129,6 +138,7 @@ export function AdminConsole({
   activeLeagueId: string;
   userSubmissionSummaries: UserSubmissionSummary[];
   demoToolsEnabled: boolean;
+  bonusQuestions: BonusQuestionItem[];
 }) {
   const [localRules, setLocalRules] = useState<Rule[]>(rules);
   const [localBonusRules, setLocalBonusRules] = useState<BonusRule[]>(bonusRules);
@@ -146,6 +156,10 @@ export function AdminConsole({
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [resettingUserPredictionsId, setResettingUserPredictionsId] = useState<string | null>(null);
   const [resettingLeaguePlayerResults, setResettingLeaguePlayerResults] = useState(false);
+  const [bonusCorrectAnswers, setBonusCorrectAnswers] = useState<Record<string, string>>(() =>
+    Object.fromEntries(bonusQuestions.map((question) => [question.id, question.correctAnswer]))
+  );
+  const [savingBonusResults, setSavingBonusResults] = useState(false);
 
   const buildUserResultsHref = (userId: string) =>
     `/matches?leagueId=${encodeURIComponent(activeLeagueId)}&viewUserId=${encodeURIComponent(userId)}`;
@@ -199,6 +213,8 @@ export function AdminConsole({
   );
 
   const isPredictionsUnlocked = matches.some((match) => new Date(match.lockAt).getTime() > currentTimestamp);
+  // Cerrado cuando todos los partidos tienen resultado cargado (ningún pronóstico puede editarse).
+  const isPredictionsClosed = matches.length > 0 && matches.every((match) => match.isFinished);
 
   const updateRule = <T extends { points: number; enabled: boolean }, K extends "points" | "enabled">(
     setRules: Dispatch<SetStateAction<T[]>>,
@@ -318,6 +334,30 @@ export function AdminConsole({
     setMessage(res.ok ? "Resultados guardados y ranking recalculado ✓" : data.error || "Error guardando resultados");
     setSavingResults(false);
     
+    if (res.ok) {
+      setTimeout(() => window.location.reload(), 1000);
+    }
+  };
+
+  const saveBonusResults = async () => {
+    setMessage("");
+    setSavingBonusResults(true);
+
+    const answers = bonusQuestions.map((question) => ({
+      questionId: question.id,
+      correctAnswer: bonusCorrectAnswers[question.id] ? bonusCorrectAnswers[question.id] : null,
+    }));
+
+    const res = await fetch("/api/admin/bonus-results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leagueId: activeLeagueId, answers }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    setMessage(res.ok ? "Respuestas bonus guardadas y ranking recalculado ✓" : data.error || "Error guardando respuestas bonus");
+    setSavingBonusResults(false);
+
     if (res.ok) {
       setTimeout(() => window.location.reload(), 1000);
     }
@@ -607,6 +647,46 @@ export function AdminConsole({
         </div>
       </section>
 
+      {bonusQuestions.length > 0 && (
+        <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
+          <h2 className="text-lg font-black">Respuestas correctas (bonus)</h2>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Marca la respuesta oficial de cada pregunta bonus. Al guardar se recalculan los puntos bonus y el ranking.
+            Déjala en blanco si aún no se conoce.
+          </p>
+          <div className="mt-3 space-y-3">
+            {bonusQuestions.map((question) => (
+              <div key={question.id} className="flex flex-col gap-1 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm font-semibold">{question.question}</span>
+                <select
+                  value={bonusCorrectAnswers[question.id] ?? ""}
+                  onChange={(e) =>
+                    setBonusCorrectAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
+                  }
+                  className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                >
+                  <option value="">— Sin definir —</option>
+                  {question.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <button
+              onClick={saveBonusResults}
+              disabled={savingBonusResults}
+              className="rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white disabled:opacity-50"
+            >
+              {savingBonusResults ? "Guardando..." : "Guardar respuestas bonus"}
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
         <h2 className="text-lg font-black">3) Resultados oficiales</h2>
         <div className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50">
@@ -645,7 +725,7 @@ export function AdminConsole({
           </div>
         </div>
         <div className="mt-3">
-          <ResultsInputPanel matches={matches} onSaveResults={saveResults} loading={savingResults} />
+          <ResultsInputPanel matches={matches} onSaveResults={saveResults} loading={savingResults} isPredictionsClosed={isPredictionsClosed} />
         </div>
       </section>
 

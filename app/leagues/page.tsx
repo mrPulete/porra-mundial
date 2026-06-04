@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LeaguesManager } from "@/components/leagues-manager";
@@ -16,6 +17,10 @@ export default async function LeaguesPage() {
         </Link>
       </main>
     );
+  }
+
+  if (session.user.role !== "ADMIN") {
+    redirect("/predictions");
   }
 
   const memberships = await prisma.leagueMember.findMany({

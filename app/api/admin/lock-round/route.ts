@@ -1,5 +1,6 @@
 import { MatchStage } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { canAccessAdminForLeague } from "@/lib/league-admin";
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
     where: { stage: { in: targetStages } },
     data: { lockAt },
   });
+
+  // Invalida la caché de páginas de usuario para reflejar el nuevo estado de bloqueo.
+  revalidatePath("/predictions");
 
   return NextResponse.json({
     ok: true,

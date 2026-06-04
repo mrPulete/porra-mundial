@@ -5,7 +5,7 @@ import { resolveActiveLeagueForUser } from "@/lib/active-league";
 import { getPredictionEditPolicy } from "@/lib/prediction-edit-policy";
 import { getLeagueScoringConfig, resolvePenaltyPoints } from "@/lib/scoring-config";
 import { recalculateRankings } from "@/lib/scoring-engine";
-import { bonusPayloadSchema, sameBonusAnswer } from "@/lib/submission";
+import { bonusPayloadSchema, normalizeBonusAnswerValue, sameBonusAnswer } from "@/lib/submission";
 
 async function resolveActiveLeagueId(userId: string) {
   const context = await resolveActiveLeagueForUser(userId);
@@ -81,6 +81,8 @@ export async function POST(request: Request) {
       },
       select: {
         id: true,
+        code: true,
+        deadline: true,
       },
     }),
     prisma.bonusAnswer.findMany({
@@ -99,10 +101,21 @@ export async function POST(request: Request) {
     getLeagueScoringConfig(activeLeagueId),
   ]);
 
-  const validQuestionIds = new Set(questions.map((question) => question.id));
+  // Si la porra está completamente bloqueada (admin bloqueó todas las rondas), las preguntas
+  // bonus también se cierran independientemente de su deadline calendar.
+  if (policy.submissionWindowStatus === "LOCKED") {
+    return NextResponse.json({ error: "La porra está cerrada. Las preguntas bonus no son editables." }, { status: 403 });
+  }
+
+  const questionById = new Map(questions.map((question) => [question.id, question] as const));
+  const now = new Date();
   for (const item of answers) {
-    if (!validQuestionIds.has(item.questionId)) {
+    const question = questionById.get(item.questionId);
+    if (!question) {
       return NextResponse.json({ error: `Pregunta no valida: ${item.questionId}` }, { status: 400 });
+    }
+    if (question.deadline <= now) {
+      return NextResponse.json({ error: "El plazo para responder esta pregunta bonus ha terminado" }, { status: 403 });
     }
   }
 
@@ -111,12 +124,7 @@ export async function POST(request: Request) {
       row.questionId,
       {
         id: row.id,
-        answer:
-          typeof row.answer === "string"
-            ? row.answer
-            : row.answer && typeof row.answer === "object" && typeof (row.answer as { value?: unknown }).value === "string"
-              ? ((row.answer as { value: string }).value)
-              : "",
+        answer: normalizeBonusAnswerValue(row.answer),
         penaltyPoints: row.penaltyPoints,
       },
     ] as const)
@@ -135,7 +143,11 @@ export async function POST(request: Request) {
       }
 
       changesCount += 1;
-      const penalty = policy.submissionWindowStatus === "REOPENED" ? resolvePenaltyPoints(penaltyRules, "MATCH_EDIT") : 0;
+      // Penalización solo en ediciones reales y con el torneo iniciado. Editar el campeón cuesta más
+      // (CHAMPION_EDIT, -5 por defecto); el resto de bonus usan MATCH_EDIT (-1).
+      const tournamentStarted = policy.submissionWindowStatus !== "OPEN";
+      const penaltyTarget = questionById.get(item.questionId)?.code === "CHAMPION" ? "CHAMPION_EDIT" : "MATCH_EDIT";
+      const penalty = existing && tournamentStarted ? resolvePenaltyPoints(penaltyRules, penaltyTarget) : 0;
       penaltyApplied += penalty;
 
       if (existing) {

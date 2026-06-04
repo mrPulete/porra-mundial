@@ -35,10 +35,12 @@ export function ResultsInputPanel({
   matches,
   onSaveResults,
   loading,
+  isPredictionsClosed,
 }: {
   matches: AdminMatch[];
   onSaveResults: (results: { matchId: string; homeScore: number; awayScore: number; qualifiedTeamId?: string | null }[]) => Promise<void>;
   loading?: boolean;
+  isPredictionsClosed?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<string>("GROUP");
   const [modalMatch, setModalMatch] = useState<AdminMatch | null>(null);
@@ -186,75 +188,125 @@ export function ResultsInputPanel({
   const renderMatchCards = (matchesToRender: AdminMatch[]) => {
     return (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {matchesToRender.map((match) => (
-          <div key={match.id} className="rounded-2xl border border-black/5 bg-neutral-50 p-4 dark:border-white/10 dark:bg-neutral-800/50">
-            <p className="mb-1 text-center text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-              {match.code ? match.code : match.group ? `Grupo ${match.group}` : "Partido"}
-            </p>
-            <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-              {new Date(match.kickoffAt).toLocaleDateString("es-ES", { month: "short", day: "numeric" }).toUpperCase()}
-              {" · "}
-              {new Date(match.kickoffAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-            </p>
-            <p className="mb-3 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-              {match.stadium}
-              {match.city ? `, ${match.city}` : ""}
-            </p>
+        {matchesToRender.map((match) => {
+          const hasResult = localResults[match.id]?.home !== "" && localResults[match.id]?.away !== "";
+          const isLocked = match.isFinished;
 
-            <div className="flex items-center justify-center gap-2">
-              <div className="min-w-0 flex-1 text-center">
-                <p className="truncate text-xs font-bold leading-tight">{match.homeName}</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openResultModal(match)}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-              >
-                <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
-                  {localResults[match.id]?.home ?? ""}
-                </div>
-                <span className="rounded-md bg-emerald-600 px-2 py-1 text-[10px] font-black tracking-wide text-white">VS</span>
-                <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
-                  {localResults[match.id]?.away ?? ""}
-                </div>
-              </button>
-
-              <div className="min-w-0 flex-1 text-center">
-                <p className="truncate text-xs font-bold leading-tight">{match.awayName}</p>
-              </div>
-            </div>
-
-            {isKnockoutStage(match.stage) &&
-              localResults[match.id]?.home !== "" &&
-              localResults[match.id]?.away !== "" &&
-              localResults[match.id]?.home === localResults[match.id]?.away && (
-                <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
-                  Clasifica: {localQualifiedTeams[match.id] === match.homeTeamId ? match.homeName : localQualifiedTeams[match.id] === match.awayTeamId ? match.awayName : "pendiente"}
+          return (
+            <div
+              key={match.id}
+              className={`rounded-2xl border p-4 ${
+                isLocked
+                  ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-800/50 dark:bg-emerald-900/10"
+                  : "border-black/5 bg-neutral-50 dark:border-white/10 dark:bg-neutral-800/50"
+              }`}
+            >
+              <div className="mb-1 flex items-center justify-center gap-2">
+                <p className="text-center text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                  {match.code ? match.code : match.group ? `Grupo ${match.group}` : "Partido"}
                 </p>
-              )}
-          </div>
-        ))}
+                {isLocked && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-800/40 dark:text-emerald-300">
+                    ✓ Guardado
+                  </span>
+                )}
+              </div>
+              <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                {new Date(match.kickoffAt).toLocaleDateString("es-ES", { month: "short", day: "numeric" }).toUpperCase()}
+                {" · "}
+                {new Date(match.kickoffAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+              <p className="mb-3 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
+                {match.stadium}
+                {match.city ? `, ${match.city}` : ""}
+              </p>
+
+              <div className="flex items-center justify-center gap-2">
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="truncate text-xs font-bold leading-tight">{match.homeName}</p>
+                </div>
+
+                {isLocked ? (
+                  // Partido con resultado: marcador read-only, sin interacción
+                  <div className="flex shrink-0 items-center gap-1.5 px-1 py-0.5">
+                    <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-emerald-300/60 bg-emerald-50 px-2 py-1 text-center text-sm font-black text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-900/30 dark:text-emerald-200">
+                      {localResults[match.id]?.home ?? ""}
+                    </div>
+                    <span className="rounded-md bg-neutral-300 px-2 py-1 text-[10px] font-black tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400">VS</span>
+                    <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-emerald-300/60 bg-emerald-50 px-2 py-1 text-center text-sm font-black text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-900/30 dark:text-emerald-200">
+                      {localResults[match.id]?.away ?? ""}
+                    </div>
+                  </div>
+                ) : (
+                  // Partido sin resultado: botón editable
+                  <button
+                    type="button"
+                    onClick={() => openResultModal(match)}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors ${
+                      hasResult
+                        ? "hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                        : "hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                    }`}
+                  >
+                    <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
+                      {localResults[match.id]?.home ?? ""}
+                    </div>
+                    <span className={`rounded-md px-2 py-1 text-[10px] font-black tracking-wide text-white ${hasResult ? "bg-amber-500" : "bg-emerald-600"}`}>
+                      {hasResult ? "ED" : "VS"}
+                    </span>
+                    <div className="flex h-9 w-12 items-center justify-center rounded-lg border border-black/20 bg-white px-2 py-1 text-center text-sm font-black dark:border-white/20 dark:bg-neutral-900">
+                      {localResults[match.id]?.away ?? ""}
+                    </div>
+                  </button>
+                )}
+
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="truncate text-xs font-bold leading-tight">{match.awayName}</p>
+                </div>
+              </div>
+
+              {!isLocked && isKnockoutStage(match.stage) &&
+                localResults[match.id]?.home !== "" &&
+                localResults[match.id]?.away !== "" &&
+                localResults[match.id]?.home === localResults[match.id]?.away && (
+                  <p className="mt-2 text-center text-[10px] text-neutral-500 dark:text-neutral-400">
+                    Clasifica: {localQualifiedTeams[match.id] === match.homeTeamId ? match.homeName : localQualifiedTeams[match.id] === match.awayTeamId ? match.awayName : "pendiente"}
+                  </p>
+                )}
+            </div>
+          );
+        })}
       </div>
     );
   };
 
   const currentPhaseMatches = groupedByPhase.get(activeTab) || [];
+  // Solo cuentan como pendientes los partidos SIN resultado guardado (isFinished=true ya está OK).
   const pendingCount = currentPhaseMatches.filter((m) => {
+    if (m.isFinished) {
+      return false;
+    }
     const scores = localResults[m.id];
     if (!scores?.home || !scores?.away) {
       return true;
     }
-
     if (isKnockoutStage(m.stage) && scores.home === scores.away) {
       return !localQualifiedTeams[m.id];
     }
-
     return false;
   }).length;
 
   return (
     <div className="space-y-4">
+      {isPredictionsClosed && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-400/30 dark:bg-amber-500/10">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            🔒 La porra está cerrada para los usuarios — todos los partidos tienen resultado cargado.
+            Los pronósticos no son editables. Puedes seguir corrigiendo resultados si es necesario.
+          </p>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto rounded-xl border border-black/10 bg-neutral-100 p-1 dark:border-white/10 dark:bg-neutral-800">
         {PHASE_TABS.map((tab) => {

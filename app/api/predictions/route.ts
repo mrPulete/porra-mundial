@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       id: true,
       stage: true,
       lockAt: true,
+      isFinished: true,
       homeTeamId: true,
       awayTeamId: true,
     },
@@ -85,20 +86,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "La ronda esta bloqueada para editar pronosticos" }, { status: 403 });
     }
 
+    // Si el partido ya tiene resultado oficial cargado, no se puede crear ni editar su pronóstico,
+    // aunque la fecha de bloqueo aún no haya pasado (p.ej. resultados cargados antes del kickoff).
+    if (match.isFinished) {
+      return NextResponse.json(
+        { error: "El partido ya tiene resultado y no admite cambios de pronostico" },
+        { status: 403 }
+      );
+    }
+
     if (requiresQualifiedTeam(match.stage, item.homeScore, item.awayScore)) {
       if (!item.predictedQualifiedTeamId) {
         return NextResponse.json(
           { error: "En cruces con empate debes indicar que equipo clasifica" },
-          { status: 400 }
-        );
-      }
-
-      if (
-        item.predictedQualifiedTeamId !== match.homeTeamId &&
-        item.predictedQualifiedTeamId !== match.awayTeamId
-      ) {
-        return NextResponse.json(
-          { error: "El equipo clasificado no corresponde a este partido" },
           { status: 400 }
         );
       }
@@ -178,8 +178,11 @@ export async function POST(request: Request) {
 
       changesCount += 1;
 
+      // Penalización solo en ediciones reales (existe predicción previa) y una vez iniciado el
+      // torneo (cualquier estado distinto de OPEN). Crear una predicción por primera vez no penaliza.
       const target = penaltyTargetForStage(match.stage as MatchStage);
-      const penalty = policy.submissionWindowStatus === "REOPENED" ? resolvePenaltyPoints(penaltyRules, target) : 0;
+      const tournamentStarted = policy.submissionWindowStatus !== "OPEN";
+      const penalty = existing && tournamentStarted ? resolvePenaltyPoints(penaltyRules, target) : 0;
       penaltyApplied += penalty;
 
       const nextOutcome = outcomeFromScore(item.homeScore, item.awayScore);

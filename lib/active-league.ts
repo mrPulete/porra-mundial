@@ -1,7 +1,4 @@
-import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-
-export const ACTIVE_LEAGUE_COOKIE = "activeLeagueId";
 
 type UserLeague = {
   id: string;
@@ -9,34 +6,52 @@ type UserLeague = {
   code: string;
 };
 export async function resolveActiveLeagueForUser(userId: string): Promise<{ userLeagues: UserLeague[]; activeLeagueId: string | null }> {
-  // Get leagueId from query param if present
-  const headersList = await headers();
-  const url = headersList.get("x-url") || headersList.get("referer") || "";
-  let queryLeagueId: string | null = null;
-  try {
-    const u = new URL(url, "http://localhost");
-    queryLeagueId = u.searchParams.get("leagueId");
-  } catch {}
-
-  const userLeagues = await prisma.league.findMany({
-    where: {
-      OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-    },
-    select: { id: true, name: true, code: true },
-    orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
   });
 
-  if (userLeagues.length === 0) {
-    return { userLeagues, activeLeagueId: null };
+  // Sesion invalida (usuario borrado o recreado): evitamos FK errors y dejamos al caller manejar relogin.
+  if (!user) {
+    return {
+      userLeagues: [],
+      activeLeagueId: null,
+    };
   }
 
-  const cookieStore = await cookies();
-  const cookieLeagueId = cookieStore.get(ACTIVE_LEAGUE_COOKIE)?.value;
-  const validQueryLeague = queryLeagueId && userLeagues.some((league) => league.id === queryLeagueId) ? queryLeagueId : null;
-  const validCookieLeague = cookieLeagueId && userLeagues.some((league) => league.id === cookieLeagueId) ? cookieLeagueId : null;
+  let globalLeague = await prisma.league.findUnique({
+    where: { code: "GLOBAL" },
+    select: { id: true, name: true, code: true },
+  });
+
+  if (!globalLeague) {
+    globalLeague = await prisma.league.create({
+      data: {
+        code: "GLOBAL",
+        name: "Global",
+        ownerId: user.id,
+      },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  await prisma.leagueMember.upsert({
+    where: {
+      leagueId_userId: {
+        leagueId: globalLeague.id,
+        userId: user.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      leagueId: globalLeague.id,
+      role: "MEMBER",
+    },
+  });
 
   return {
-    userLeagues,
-    activeLeagueId: validQueryLeague ?? validCookieLeague ?? userLeagues[0].id,
+    userLeagues: [globalLeague],
+    activeLeagueId: globalLeague.id,
   };
 }

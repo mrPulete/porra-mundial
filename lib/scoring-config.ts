@@ -51,6 +51,9 @@ const DEFAULT_BONUS_RULES: BonusRuleSeed[] = [
   { code: "TOP_SCORER", label: "Top scorer", points: 10, sortOrder: 30 },
   { code: "BEST_PLAYER", label: "Best player", points: 8, sortOrder: 40 },
   { code: "BEST_GOALKEEPER", label: "Best goalkeeper", points: 6, sortOrder: 50 },
+  { code: "BEST_YOUNG_PLAYER", label: "Best young player", points: 6, sortOrder: 60 },
+  { code: "FAIR_PLAY", label: "Fair Play", points: 5, sortOrder: 70 },
+  { code: "MOST_FUN_TEAM", label: "Most fun team", points: 3, sortOrder: 80 },
 ];
 
 const DEFAULT_PENALTIES: PenaltySeed[] = [
@@ -149,4 +152,15 @@ export function resolvePenaltyPoints(
     return 0;
   }
   return rule.points;
+}
+
+export function resolveBonusPoints(
+  bonusRules: Array<{ code: string; points: number; enabled: boolean }>,
+  code: string | null | undefined
+) {
+  if (!code) {
+    return 0;
+  }
+  const rule = bonusRules.find((item) => item.enabled && item.code === code);
+  return rule?.points ?? 0;
 }

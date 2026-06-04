@@ -16,25 +16,28 @@ export type PredictionEditPolicy = {
 };
 
 export async function getPredictionEditPolicy(now = new Date()): Promise<PredictionEditPolicy> {
+  // Usamos lockAt (no kickoffAt) como frontera: es el campo que el admin actualiza con lock-round.
+  // Por defecto lockAt = kickoffAt - 30 min; cuando el admin bloquea manualmente, lockAt queda
+  // en el pasado de forma inmediata.
   const [firstMatch, firstKnockoutMatch] = await Promise.all([
     prisma.match.findFirst({
-      orderBy: [{ kickoffAt: "asc" }, { roundOrder: "asc" }],
-      select: { kickoffAt: true },
+      orderBy: [{ lockAt: "asc" }, { roundOrder: "asc" }],
+      select: { kickoffAt: true, lockAt: true },
     }),
     prisma.match.findFirst({
       where: { stage: { not: MatchStage.GROUP } },
-      orderBy: [{ kickoffAt: "asc" }, { roundOrder: "asc" }],
-      select: { kickoffAt: true },
+      orderBy: [{ lockAt: "asc" }, { roundOrder: "asc" }],
+      select: { kickoffAt: true, lockAt: true },
     }),
   ]);
 
   const firstWorldCupKickoffAt = firstMatch?.kickoffAt ?? null;
-  const firstKnockoutKickoffAt = firstKnockoutMatch?.kickoffAt ?? null;
-  const knockoutCutoffAt = firstKnockoutKickoffAt
-    ? new Date(firstKnockoutKickoffAt.getTime() - 24 * 60 * 60 * 1000)
-    : null;
+  // La ventana de predicciones se cierra en el primer lockAt, no en el kickoff.
+  const firstWorldCupLockAt = firstMatch?.lockAt ?? null;
+  // El corte para KO es el primer lockAt de partido de eliminatoria.
+  const knockoutCutoffAt = firstKnockoutMatch?.lockAt ?? null;
 
-  const beforeWorldCupStart = !firstWorldCupKickoffAt || now < firstWorldCupKickoffAt;
+  const beforeWorldCupStart = !firstWorldCupLockAt || now < firstWorldCupLockAt;
   const beforeKnockoutCutoff = Boolean(knockoutCutoffAt && now < knockoutCutoffAt);
   const submissionWindowStatus = beforeWorldCupStart
     ? "OPEN"

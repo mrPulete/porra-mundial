@@ -1,7 +1,9 @@
 import { MatchStage, RankingScope } from "@prisma/client";
 import type { ScoringRuleType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getLeagueScoringConfig, resolveRulePoints } from "@/lib/scoring-config";
+import { getLeagueScoringConfig, resolveBonusPoints, resolveRulePoints } from "@/lib/scoring-config";
+import { getStageScoringMap } from "@/lib/stage-scoring";
+import { normalizeBonusAnswerValue } from "@/lib/submission";
 
 const RULE_EXACT_SCORE = "EXACT_SCORE" as ScoringRuleType;
 const RULE_OUTCOME_1X2 = "OUTCOME_1X2" as ScoringRuleType;
@@ -22,7 +24,13 @@ function safeNumber(value: number | null | undefined) {
   return value ?? 0;
 }
 
-function resolveQualifiedTeamId(match: { homeTeamId: string; awayTeamId: string; homeScore: number | null; awayScore: number | null }) {
+function resolveQualifiedTeamId(match: {
+  homeTeamId: string;
+  awayTeamId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  qualifiedTeamId: string | null;
+}) {
   if (match.homeScore === null || match.awayScore === null) {
     return null;
   }
@@ -32,7 +40,8 @@ function resolveQualifiedTeamId(match: { homeTeamId: string; awayTeamId: string;
   if (match.awayScore > match.homeScore) {
     return match.awayTeamId;
   }
-  return null;
+  // Empate resuelto por penaltis: el clasificado lo fija el admin y se persiste en el partido.
+  return match.qualifiedTeamId;
 }
 
 export async function recalculateRankings(leagueId?: string) {
@@ -150,6 +159,8 @@ export async function recalculateFinishedMatchPoints(leagueId?: string) {
     select: { id: true },
   });
 
+  const stageScoringMap = await getStageScoringMap();
+
   for (const league of leagues) {
     const { rules } = await getLeagueScoringConfig(league.id);
 
@@ -181,8 +192,14 @@ export async function recalculateFinishedMatchPoints(leagueId?: string) {
         const hitAwayGoals = prediction.predictedAway === finalAwayScore;
         const oneGoalOnly = Number(hitHomeGoals !== hitAwayGoals);
 
+        // Multiplicador 1X2 por ronda (PRD §5.3). Por defecto vale 1 en GROUP, por lo que la
+        // fase de grupos no cambia; solo escala el acierto de resultado (1X2) cuando hay regla
+        // OUTCOME_1X2 configurada en una ronda con multiplicador > 1.
+        const stageMultiplier = stageScoringMap.get(match.stage as MatchStage) ?? 1;
+
         const exactPoints = hitExact ? resolveRulePoints(rules, match.stage as MatchStage, RULE_EXACT_SCORE) : 0;
-        const outcomePoints = !hitExact && hitOutcome ? resolveRulePoints(rules, match.stage as MatchStage, RULE_OUTCOME_1X2) : 0;
+        const baseOutcomePoints = !hitExact && hitOutcome ? resolveRulePoints(rules, match.stage as MatchStage, RULE_OUTCOME_1X2) : 0;
+        const outcomePoints = baseOutcomePoints * stageMultiplier;
         const oneGoalPoints = oneGoalOnly ? resolveRulePoints(rules, match.stage as MatchStage, RULE_SINGLE_TEAM_GOALS) : 0;
 
         const qualifierPoints =
@@ -204,5 +221,46 @@ export async function recalculateFinishedMatchPoints(leagueId?: string) {
     }
   }
 
+  await recalculateBonusPoints(leagueId);
   await recalculateRankings(leagueId);
+}
+
+// Otorga puntos de las preguntas bonus comparando la respuesta del usuario con la respuesta
+// correcta marcada por el admin (BonusQuestion.correctAnswer). Sin respuesta correcta marcada,
+// la pregunta deja todos los pointsAwarded en 0 (comportamiento previo).
+export async function recalculateBonusPoints(leagueId?: string) {
+  const leagues = await prisma.league.findMany({
+    where: leagueId ? { id: leagueId } : undefined,
+    select: { id: true },
+  });
+
+  const questions = await prisma.bonusQuestion.findMany({
+    select: { id: true, code: true, correctAnswer: true },
+  });
+
+  for (const league of leagues) {
+    const { bonusRules } = await getLeagueScoringConfig(league.id);
+
+    for (const question of questions) {
+      const correctValue = question.correctAnswer != null ? normalizeBonusAnswerValue(question.correctAnswer) : "";
+
+      const answers = await prisma.bonusAnswer.findMany({
+        where: { questionId: question.id, leagueId: league.id },
+        select: { id: true, answer: true, pointsAwarded: true },
+      });
+
+      for (const answer of answers) {
+        const givenValue = normalizeBonusAnswerValue(answer.answer);
+        const isCorrect = correctValue !== "" && givenValue !== "" && givenValue === correctValue;
+        const points = isCorrect ? resolveBonusPoints(bonusRules, question.code) : 0;
+
+        if (points !== answer.pointsAwarded) {
+          await prisma.bonusAnswer.update({
+            where: { id: answer.id },
+            data: { pointsAwarded: points },
+          });
+        }
+      }
+    }
+  }
 }

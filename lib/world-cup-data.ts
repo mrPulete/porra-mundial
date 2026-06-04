@@ -80,8 +80,9 @@ const SEMI_FINAL_REFS: KnockoutRef[] = [
 
 const THIRD_PLACE_REF: KnockoutRef = {
   code: "W103",
-  homeRef: "W101",
-  awayRef: "W102",
+  // El partido por el 3er puesto lo disputan los PERDEDORES de las semifinales (L101/L102).
+  homeRef: "L101",
+  awayRef: "L102",
   stage: MatchStage.THIRD_PLACE,
 };
 
@@ -91,6 +92,19 @@ const FINAL_REF: KnockoutRef = {
   awayRef: "W102",
   stage: MatchStage.FINAL,
 };
+
+// Cableado de eliminatorias expuesto como { code: [homeRef, awayRef] } para verificar (en tests)
+// que coincide con KNOCKOUT_WIRING de tournament-tree.ts y con el bracket oficial FIFA.
+export const KNOCKOUT_WIRING: Record<string, [string, string]> = Object.fromEntries(
+  [
+    ...ROUND_OF_32_REFS,
+    ...ROUND_OF_16_REFS,
+    ...QUARTER_FINAL_REFS,
+    ...SEMI_FINAL_REFS,
+    THIRD_PLACE_REF,
+    FINAL_REF,
+  ].map((ref) => [ref.code, [ref.homeRef, ref.awayRef]])
+);
 
 function pickWinner(teamA: TeamSeed, teamB: TeamSeed) {
   return teamA.rank < teamB.rank ? teamA : teamB;
@@ -115,11 +129,20 @@ function resolveReference(
   groupRankMap: Map<string, TeamSeed>,
   thirdRanking: TeamSeed[],
   usedThirds: Set<string>,
-  winnersByCode: Map<string, TeamSeed>
+  winnersByCode: Map<string, TeamSeed>,
+  losersByCode: Map<string, TeamSeed>
 ) {
   const knownWinner = winnersByCode.get(ref);
   if (knownWinner) {
     return knownWinner;
+  }
+
+  if (ref.startsWith("L")) {
+    const knownLoser = losersByCode.get(`W${ref.slice(1)}`);
+    if (knownLoser) {
+      return knownLoser;
+    }
+    throw new Error(`No se pudo resolver referencia de perdedor: ${ref}`);
   }
 
   const directGroup = groupRankMap.get(ref);
@@ -172,6 +195,7 @@ function generateMissingKnockoutMatches(teams: TeamSeed[], existingMatches: Seed
   const thirdRanking = buildThirdRanking(teams);
   const usedThirds = new Set<string>();
   const winnersByCode = new Map<string, TeamSeed>();
+  const losersByCode = new Map<string, TeamSeed>();
 
   const maxKickoff = existingMatches.reduce((max, match) => (match.kickoffAt > max ? match.kickoffAt : max), new Date("2026-07-01T00:00:00.000Z"));
   const kickoffBase = new Date(maxKickoff.getTime() + 24 * 60 * 60 * 1000);
@@ -187,10 +211,12 @@ function generateMissingKnockoutMatches(teams: TeamSeed[], existingMatches: Seed
   ];
 
   allRefs.forEach((ref, index) => {
-    const home = resolveReference(ref.homeRef, groupRankMap, thirdRanking, usedThirds, winnersByCode);
-    const away = resolveReference(ref.awayRef, groupRankMap, thirdRanking, usedThirds, winnersByCode);
+    const home = resolveReference(ref.homeRef, groupRankMap, thirdRanking, usedThirds, winnersByCode, losersByCode);
+    const away = resolveReference(ref.awayRef, groupRankMap, thirdRanking, usedThirds, winnersByCode, losersByCode);
     const winner = pickWinner(home, away);
+    const loser = winner === home ? away : home;
     winnersByCode.set(ref.code, winner);
+    losersByCode.set(ref.code, loser);
 
     const kickoffAt = new Date(kickoffBase.getTime() + index * 6 * 60 * 60 * 1000);
     const roundOrder = 73 + index;
