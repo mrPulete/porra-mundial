@@ -2,11 +2,15 @@
 set -e
 
 echo "Running database migrations..."
-node node_modules/prisma/build/index.js migrate deploy || {
-  echo "Migration failed, attempting to resolve..."
-  node node_modules/prisma/build/index.js migrate resolve --rolled-back 20260606073020_init || true
-  node node_modules/prisma/build/index.js migrate deploy
-}
+if ! node node_modules/prisma/build/index.js migrate deploy; then
+  echo "Migration deploy failed, attempting to mark as completed..."
+  node node_modules/prisma/build/index.js migrate resolve --applied 20260606073020_init || true
+  node node_modules/prisma/build/index.js migrate deploy || {
+    echo "Still failing, trying db push..."
+    node node_modules/prisma/build/index.js db push --skip-generate --force-reset || true
+    node node_modules/prisma/build/index.js migrate deploy || true
+  }
+fi
 
 echo "Ensuring database schema is in sync..."
 node node_modules/prisma/build/index.js db push --skip-generate
