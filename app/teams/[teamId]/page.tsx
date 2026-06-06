@@ -164,25 +164,6 @@ export default async function TeamDetailPage({
   let championVotes = 0;
   let totalChampionPreds = 0;
 
-  if (championQuestion) {
-    const championAnswers = await prisma.bonusAnswer.findMany({
-      where: { questionId: championQuestion.id },
-      select: { answer: true },
-    });
-
-    totalChampionPreds = championAnswers.length;
-    championVotes = championAnswers.filter((row) => {
-      if (typeof row.answer === "string") {
-        return row.answer.toUpperCase() === team.code;
-      }
-      if (row.answer && typeof row.answer === "object") {
-        const value = (row.answer as { value?: unknown }).value;
-        return typeof value === "string" && value.toUpperCase() === team.code;
-      }
-      return false;
-    }).length;
-  }
-
   const upcomingWithPredictions = calendar.filter((item) => !item.isFinished && item.predictWinPct !== null);
   const avgWinPct =
     upcomingWithPredictions.length > 0
@@ -214,9 +195,6 @@ export default async function TeamDetailPage({
     predictionInsights: {
       avgWinPct,
       totalPredictions: teamMatches.reduce((sum, match) => sum + match.predictions.length, 0),
-      championPct: toPercent(championVotes, totalChampionPreds),
-      championVotes,
-      totalChampionPreds,
     },
     footballData,
   };

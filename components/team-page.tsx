@@ -46,9 +46,6 @@ export type TeamData = {
   predictionInsights: {
     avgWinPct: number | null;
     totalPredictions: number;
-    championPct: number | null;
-    championVotes: number;
-    totalChampionPreds: number;
   };
   footballData: TeamFootballInfo | null;
 };
