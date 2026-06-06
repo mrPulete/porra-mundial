@@ -48,7 +48,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Fase no soportada" }, { status: 400 });
   }
 
-  const targetStages = STAGE_ORDER.slice(stageIndex);
+  let targetStages: MatchStage[];
+
+  if (stage === "GROUP") {
+    // Lock only GROUP stage (no cascade)
+    targetStages = ["GROUP"];
+  } else if (stage === "ROUND_OF_32") {
+    // Lock R32 and everything after (cascade)
+    targetStages = STAGE_ORDER.slice(stageIndex);
+  } else {
+    // Only GROUP or ROUND_OF_32 allowed
+    return NextResponse.json(
+      { error: "Solo se puede bloquear Grupos o 32avos en adelante" },
+      { status: 400 }
+    );
+  }
 
   const now = new Date();
   const lockAt =

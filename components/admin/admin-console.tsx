@@ -3,7 +3,8 @@
 import type { MatchStage, PenaltyTarget, PredictionChangeType, ScoringRuleType } from "@prisma/client";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { ResultsInputPanel } from "./results-input-panel";
-import { TemplateUploader } from "../template-uploader";
+import { BackupRestore } from "./backup-restore";
+import OptionAutocomplete from "../option-autocomplete";
 
 type AdminMatch = {
   id: string;
@@ -160,11 +161,12 @@ export function AdminConsole({
     Object.fromEntries(bonusQuestions.map((question) => [question.id, question.correctAnswer]))
   );
   const [savingBonusResults, setSavingBonusResults] = useState(false);
+  const [scoringTab, setScoringTab] = useState<"rules" | "bonus" | "penalties" | "questions">("rules");
 
   const buildUserResultsHref = (userId: string) =>
     `/matches?leagueId=${encodeURIComponent(activeLeagueId)}&viewUserId=${encodeURIComponent(userId)}`;
 
-  const stageButtons = STAGE_ORDER.filter((stage) => matches.some((match) => match.stage === stage));
+  const stageButtons = ["GROUP" as MatchStage, "ROUND_OF_32" as MatchStage].filter((stage) => matches.some((match) => match.stage === stage));
   const stageStateByStage = (() => {
     const now = currentTimestamp;
     const map = new Map<MatchStage, StageLockState>();
@@ -549,87 +551,168 @@ export function AdminConsole({
           Todos los puntos se leen de base de datos y son independientes por liga.
         </p>
 
-        <h3 className="mt-4 text-sm font-black uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-          Reglas de partidos
-        </h3>
-        <div className="mt-2 space-y-2">
-          {localRules.map((rule, index) => (
-            <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_1fr_7rem_6rem]">
-              <p className="font-bold">{rule.stage}</p>
-              <p className="font-semibold text-neutral-600 dark:text-neutral-300">{rule.ruleType}</p>
-              <input
-                type="number"
-                min={-100}
-                max={100}
-                value={rule.points}
-                onChange={(e) => updateRule(setLocalRules, index, "points", Number(e.target.value))}
-                className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-              />
-              <button
-                onClick={() => deleteRule(rule.id)}
-                className="rounded-md bg-red-600 px-2 py-1 text-sm font-bold text-white"
-              >
-                Eliminar
-              </button>
-            </div>
-          ))}
+        {/* Tabs */}
+        <div className="mt-4 flex flex-wrap gap-1 border-b border-black/10 dark:border-white/10">
+          <button
+            onClick={() => setScoringTab("rules")}
+            className={`px-3 py-2 text-sm font-bold ${
+              scoringTab === "rules"
+                ? "border-b-2 border-emerald-600 text-emerald-600"
+                : "text-neutral-600 dark:text-neutral-400"
+            }`}
+          >
+            Reglas de partidos
+          </button>
+          <button
+            onClick={() => setScoringTab("bonus")}
+            className={`px-3 py-2 text-sm font-bold ${
+              scoringTab === "bonus"
+                ? "border-b-2 border-emerald-600 text-emerald-600"
+                : "text-neutral-600 dark:text-neutral-400"
+            }`}
+          >
+            Reglas bonus
+          </button>
+          <button
+            onClick={() => setScoringTab("penalties")}
+            className={`px-3 py-2 text-sm font-bold ${
+              scoringTab === "penalties"
+                ? "border-b-2 border-emerald-600 text-emerald-600"
+                : "text-neutral-600 dark:text-neutral-400"
+            }`}
+          >
+            Penalizaciones
+          </button>
+          {bonusQuestions.length > 0 && (
+            <button
+              onClick={() => setScoringTab("questions")}
+              className={`px-3 py-2 text-sm font-bold ${
+                scoringTab === "questions"
+                  ? "border-b-2 border-emerald-600 text-emerald-600"
+                  : "text-neutral-600 dark:text-neutral-400"
+              }`}
+            >
+              Preguntas adicionales
+            </button>
+          )}
         </div>
 
-        <h3 className="mt-4 text-sm font-black uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-          Reglas bonus
-        </h3>
-        <div className="mt-2 space-y-2">
-          {localBonusRules.map((rule, index) => (
-            <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_7rem_6rem]">
-              <p className="font-bold">{rule.label}</p>
-              <input
-                type="number"
-                min={-100}
-                max={100}
-                value={rule.points}
-                onChange={(e) => updateRule(setLocalBonusRules, index, "points", Number(e.target.value))}
-                className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-              />
-              <label className="inline-flex items-center gap-2 text-xs font-semibold">
-                <input
-                  type="checkbox"
-                  checked={rule.enabled}
-                  onChange={(e) => updateRule(setLocalBonusRules, index, "enabled", e.target.checked)}
-                  className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-                />
-                Activa
-              </label>
+        {/* Tab: Reglas de partidos */}
+        {scoringTab === "rules" && (
+          <div className="mt-4">
+            <div className="mt-2 space-y-2">
+              {localRules.map((rule, index) => (
+                <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_1fr_7rem_6rem]">
+                  <p className="font-bold">{rule.stage}</p>
+                  <p className="font-semibold text-neutral-600 dark:text-neutral-300">{rule.ruleType}</p>
+                  <input
+                    type="number"
+                    min={-100}
+                    max={100}
+                    value={rule.points}
+                    onChange={(e) => updateRule(setLocalRules, index, "points", Number(e.target.value))}
+                    className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                  />
+                  <button
+                    onClick={() => deleteRule(rule.id)}
+                    className="rounded-md bg-red-600 px-2 py-1 text-sm font-bold text-white"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
-        <h3 className="mt-4 text-sm font-black uppercase tracking-wide text-neutral-600 dark:text-neutral-300">Penalizaciones</h3>
-        <div className="mt-2 space-y-2">
-          {localPenaltyRules.map((rule, index) => (
-            <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_7rem_6rem]">
-              <p className="font-bold">{rule.target}</p>
-              <input
-                type="number"
-                min={-100}
-                max={100}
-                value={rule.points}
-                onChange={(e) => updateRule(setLocalPenaltyRules, index, "points", Number(e.target.value))}
-                className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-              />
-              <label className="inline-flex items-center gap-2 text-xs font-semibold">
-                <input
-                  type="checkbox"
-                  checked={rule.enabled}
-                  onChange={(e) => updateRule(setLocalPenaltyRules, index, "enabled", e.target.checked)}
-                  className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-                />
-                Activa
-              </label>
+        {/* Tab: Reglas bonus */}
+        {scoringTab === "bonus" && (
+          <div className="mt-4">
+            <div className="mt-2 space-y-2">
+              {localBonusRules.map((rule, index) => (
+                <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_7rem_6rem]">
+                  <p className="font-bold">{rule.label}</p>
+                  <input
+                    type="number"
+                    min={-100}
+                    max={100}
+                    value={rule.points}
+                    onChange={(e) => updateRule(setLocalBonusRules, index, "points", Number(e.target.value))}
+                    className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                  />
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={(e) => updateRule(setLocalBonusRules, index, "enabled", e.target.checked)}
+                      className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                    />
+                    Activa
+                  </label>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* Tab: Penalizaciones */}
+        {scoringTab === "penalties" && (
+          <div className="mt-4">
+            <div className="mt-2 space-y-2">
+              {localPenaltyRules.map((rule, index) => (
+                <div key={rule.id} className="grid grid-cols-1 gap-2 rounded-xl border border-black/10 p-2 text-sm dark:border-white/10 md:grid-cols-[1fr_7rem_6rem]">
+                  <p className="font-bold">{rule.target}</p>
+                  <input
+                    type="number"
+                    min={-100}
+                    max={100}
+                    value={rule.points}
+                    onChange={(e) => updateRule(setLocalPenaltyRules, index, "points", Number(e.target.value))}
+                    className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                  />
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={rule.enabled}
+                      onChange={(e) => updateRule(setLocalPenaltyRules, index, "enabled", e.target.checked)}
+                      className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
+                    />
+                    Activa
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Preguntas adicionales */}
+        {scoringTab === "questions" && bonusQuestions.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+              Marca la respuesta oficial de cada pregunta bonus. Al guardar se recalculan los puntos bonus y el ranking.
+              Déjala en blanco si aún no se conoce.
+            </p>
+            <div className="space-y-3">
+              {bonusQuestions.map((question) => (
+                <div key={question.id} className="flex flex-col gap-2 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm font-semibold">{question.question}</span>
+                  <div className="w-full sm:w-80">
+                    <OptionAutocomplete
+                      options={question.options}
+                      value={bonusCorrectAnswers[question.id] ?? ""}
+                      onChange={(val) =>
+                        setBonusCorrectAnswers((prev) => ({ ...prev, [question.id]: val }))
+                      }
+                      placeholder="Buscar respuesta..."
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={saveRules}
             disabled={savingScoring}
@@ -644,38 +727,7 @@ export function AdminConsole({
           >
             {recalculating ? "Recalculando..." : "Recalcular puntuaciones"}
           </button>
-        </div>
-      </section>
-
-      {bonusQuestions.length > 0 && (
-        <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-          <h2 className="text-lg font-black">Respuestas correctas (bonus)</h2>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Marca la respuesta oficial de cada pregunta bonus. Al guardar se recalculan los puntos bonus y el ranking.
-            Déjala en blanco si aún no se conoce.
-          </p>
-          <div className="mt-3 space-y-3">
-            {bonusQuestions.map((question) => (
-              <div key={question.id} className="flex flex-col gap-1 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-sm font-semibold">{question.question}</span>
-                <select
-                  value={bonusCorrectAnswers[question.id] ?? ""}
-                  onChange={(e) =>
-                    setBonusCorrectAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
-                  }
-                  className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-neutral-800 dark:text-white"
-                >
-                  <option value="">— Sin definir —</option>
-                  {question.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3">
+          {bonusQuestions.length > 0 && (
             <button
               onClick={saveBonusResults}
               disabled={savingBonusResults}
@@ -683,54 +735,12 @@ export function AdminConsole({
             >
               {savingBonusResults ? "Guardando..." : "Guardar respuestas bonus"}
             </button>
-          </div>
-        </section>
-      )}
-
-      <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-        <h2 className="text-lg font-black">3) Resultados oficiales</h2>
-        <div className="mt-3 rounded-2xl border border-black/10 bg-neutral-50 p-3 dark:border-white/10 dark:bg-neutral-800/50">
-          <p className="text-xs font-black uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Bloquear / desbloquear desde ronda</p>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Cada botón aplica desde esa fase en adelante. Las fases anteriores no se tocan.
-          </p>
-          <p className="mt-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-            Estado fases: {lockSummary.locked} bloqueadas · {lockSummary.open} abiertas · {lockSummary.mixed} mixtas
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {stageButtons.map((stage) => (
-              <div key={stage} className="flex items-center gap-1 rounded-xl border border-black/10 bg-white p-1 dark:border-white/10 dark:bg-neutral-900">
-                <span
-                  className={`rounded-lg px-2 py-1 text-[10px] font-black uppercase tracking-wide ${stageStateClass[stageStateByStage.get(stage) ?? "OPEN"]}`}
-                  title="Estado actual de esta fase"
-                >
-                  {stageStateLabel[stageStateByStage.get(stage) ?? "OPEN"]}
-                </span>
-                <button
-                  onClick={() => setRoundLock(stage, "LOCK")}
-                  disabled={roundLockAction !== null || savingResults}
-                  className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  {roundLockAction?.stage === stage && roundLockAction.mode === "LOCK" ? "Bloqueando..." : `Bloquear ${STAGE_LABELS[stage]}`}
-                </button>
-                <button
-                  onClick={() => setRoundLock(stage, "UNLOCK")}
-                  disabled={roundLockAction !== null || savingResults}
-                  className="rounded-lg bg-sky-600 px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  {roundLockAction?.stage === stage && roundLockAction.mode === "UNLOCK" ? "Desbloqueando..." : `Desbloquear ${STAGE_LABELS[stage]}`}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="mt-3">
-          <ResultsInputPanel matches={matches} onSaveResults={saveResults} loading={savingResults} isPredictionsClosed={isPredictionsClosed} />
+          )}
         </div>
       </section>
 
       <section className="rounded-3xl border border-red-500/30 bg-red-50/70 p-4 dark:border-red-400/30 dark:bg-red-500/10">
-        <h2 className="text-lg font-black text-red-800 dark:text-red-300">8) Mantenimiento</h2>
+        <h2 className="text-lg font-black text-red-800 dark:text-red-300">3) Mantenimiento</h2>
         <p className="mt-1 text-sm text-red-700/90 dark:text-red-200">
           Reinicia completamente la porra: elimina usuarios no admin, ligas, resultados, pronósticos e historial.
         </p>
@@ -744,14 +754,14 @@ export function AdminConsole({
       </section>
 
       <section className="rounded-3xl border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-neutral-900/70">
-        <h2 className="text-lg font-black">4) Cargar resultados por plantilla</h2>
+        <h2 className="text-lg font-black">4) Backup y restauración de datos</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Descarga una plantilla CSV/TSV, rellénala con los resultados, y cárgala aquí para actualizar todos los partidos de una vez.
+          Descarga un backup completo de todos los resultados y predicciones de la liga, o restaura un backup anterior.
         </p>
         <div className="mt-3">
-          <TemplateUploader
-            onUploadSuccess={(msg) => setMessage(msg)}
-            onError={(err) => setMessage(err)}
+          <BackupRestore
+            leagueId={activeLeagueId}
+            onSuccess={(msg) => setMessage(msg)}
           />
         </div>
       </section>

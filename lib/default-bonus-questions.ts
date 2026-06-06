@@ -42,38 +42,38 @@ const PLAYER_SHORTLIST: QuestionOption[] = [
 const FIFA_BONUS_QUESTIONS: BonusQuestionSeed[] = [
   {
     code: "TOP_SCORER",
-    question: "Quien ganara la Bota de Oro (maximo goleador)?",
+    question: "¿Quién ganará la Bota de Oro (máximo goleador)?",
     points: 10,
     optionsSource: "players",
   },
   {
     code: "BEST_PLAYER",
-    question: "Quien ganara el Balon de Oro del Mundial (mejor jugador)?",
+    question: "¿Quién ganará el Premio The Best (mejor jugador)?",
     points: 8,
     optionsSource: "players",
   },
   {
     code: "BEST_GOALKEEPER",
-    question: "Quien ganara el Guante de Oro (mejor portero)?",
+    question: "¿Quién ganará el Guante de Oro (mejor portero)?",
     points: 6,
     optionsSource: "players",
   },
   {
     code: "BEST_YOUNG_PLAYER",
-    question: "Quien ganara el premio al Mejor Jugador Joven?",
+    question: "¿Quién ganará el Premío al Mejor Jugador Joven?",
     points: 6,
     optionsSource: "players",
   },
   {
     code: "FAIR_PLAY",
-    question: "Que seleccion ganara el premio Fair Play FIFA?",
+    question: "¿Qué selección ganará el Premio Fair Play FIFA?",
     points: 5,
     optionsSource: "teams",
   },
   {
-    code: "MOST_FUN_TEAM",
-    question: "Cual es el equipo mas divertido en la FIFA?",
-    points: 3,
+    code: "BEST_GOAL",
+    question: "¿Qué país meterá el gol más bonito del Mundial?",
+    points: 5,
     optionsSource: "teams",
   },
 ];

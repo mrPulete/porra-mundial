@@ -194,7 +194,19 @@ export function BracketBoard({
   };
 
   const effectiveThirdOrder = thirdOrderOverride ?? thirdOrder;
-  const { rounds } = buildBracketTree(matches, scoreSource, effectiveThirdOrder, qualifierSource);
+
+  // Check if all GROUP matches are finished
+  const groupMatches = matches.filter((match) => match.stage === "GROUP");
+  const isGroupStageFinished = groupMatches.length > 0 && groupMatches.every((match) => match.isFinished);
+
+  // Check if any KNOCKOUT match has started (is finished)
+  const knockoutMatches = matches.filter((match) => match.stage !== "GROUP" && match.stage !== "THIRD_PLACE");
+  const isKnockoutStarted = knockoutMatches.some((match) => match.isFinished);
+
+  // When GROUP is finished but KNOCKOUT hasn't started, show real qualified teams
+  const showRealTeams = isGroupStageFinished && !isKnockoutStarted;
+
+  const { rounds } = buildBracketTree(matches, scoreSource, effectiveThirdOrder, qualifierSource, showRealTeams);
   const byCode = new Map(matches.filter((match) => Boolean(match.code)).map((match) => [match.code as string, match]));
 
   useEffect(() => {
@@ -481,6 +493,13 @@ export function BracketBoard({
 
   return (
     <>
+      {showRealTeams && (
+        <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100">
+          <p className="font-semibold">⚠️ Equipos clasificados actualizados</p>
+          <p className="mt-1 text-xs">Puedes cambiar tus predicciones de resultados (-2 pts por cambio) hasta que empiece la ronda de 32avos.</p>
+        </div>
+      )}
+
       <section className="overflow-x-auto pb-4">
         <div className="grid min-w-[2260px] grid-cols-6 gap-12">
         {rounds.map((round) => (

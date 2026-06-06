@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { canAccessAdminForLeague } from "@/lib/league-admin";
-import { recalculateFinishedMatchPoints } from "@/lib/scoring-engine";
+import { recalculateFinishedMatchPoints, recalculateBonusPoints, recalculateRankings } from "@/lib/scoring-engine";
 
 const payloadSchema = z.object({
   leagueId: z.string().min(1).optional(),
@@ -34,6 +34,9 @@ export async function POST(request: Request) {
   }
 
   await recalculateFinishedMatchPoints(leagueId);
+  await recalculateGroupRankingPoints(leagueId);
+  await recalculateBonusPoints(leagueId);
+  await recalculateRankings(leagueId);
 
   return NextResponse.json({ ok: true, message: "Recalculo completado" });
 }

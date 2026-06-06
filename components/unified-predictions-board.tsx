@@ -278,6 +278,8 @@ export function UnifiedPredictionsBoard({
   showQuestions = true,
   editPolicy,
   initialLastOfficialSubmittedAt = null,
+  leagueId,
+  isAdminResults = false,
 }: {
   matches: MatchRow[];
   bonusQuestions: BonusQuestionRow[];
@@ -286,6 +288,8 @@ export function UnifiedPredictionsBoard({
   showQuestions?: boolean;
   editPolicy?: PredictionEditPolicy;
   initialLastOfficialSubmittedAt?: string | null;
+  leagueId?: string;
+  isAdminResults?: boolean;
 }) {
   const mainSections = showQuestions ? MAIN_SECTIONS : MAIN_SECTIONS_WITHOUT_QUESTIONS;
   const initialScoreValues = useMemo(() => buildInitialScoreValues(matches), [matches]);
@@ -600,24 +604,43 @@ export function UnifiedPredictionsBoard({
   }, [hasPendingOfficialChanges, lastOfficialSubmittedAt, submissionStatus]);
 
   const persistPredictions = async () => {
-    const payload = {
-      mode: "official" as const,
-      predictions: Object.entries(values)
-        .filter(([, score]) => score.home !== "" && score.away !== "")
-        .map(([matchId, score]) => {
-          const match = matchesById.get(matchId);
-          const normalizedQualifier = normalizeQualifierForScore(match, score, qualifierValues[matchId] ?? "");
+    const payload = isAdminResults
+      ? {
+          leagueId,
+          results: Object.entries(values)
+            .filter(([, score]) => score.home !== "" && score.away !== "")
+            .map(([matchId, score]) => {
+              const match = matchesById.get(matchId);
+              const normalizedQualifier = normalizeQualifierForScore(match, score, qualifierValues[matchId] ?? "");
 
-          return {
-            matchId,
-            homeScore: Number(score.home),
-            awayScore: Number(score.away),
-            predictedQualifiedTeamId: normalizedQualifier || null,
-          };
-        }),
-    };
+              return {
+                matchId,
+                homeScore: Number(score.home),
+                awayScore: Number(score.away),
+                qualifiedTeamId: normalizedQualifier || null,
+              };
+            }),
+        }
+      : {
+          mode: "official" as const,
+          predictions: Object.entries(values)
+            .filter(([, score]) => score.home !== "" && score.away !== "")
+            .map(([matchId, score]) => {
+              const match = matchesById.get(matchId);
+              const normalizedQualifier = normalizeQualifierForScore(match, score, qualifierValues[matchId] ?? "");
 
-    const res = await fetch("/api/predictions", {
+              return {
+                matchId,
+                homeScore: Number(score.home),
+                awayScore: Number(score.away),
+                predictedQualifiedTeamId: normalizedQualifier || null,
+              };
+            }),
+        };
+
+    const endpoint = isAdminResults ? "/api/admin/results" : "/api/predictions";
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -631,22 +654,34 @@ export function UnifiedPredictionsBoard({
     }
 
     if (!res.ok) {
-      throw new Error(data?.error || "No se pudieron guardar predicciones");
+      throw new Error(data?.error || "No se pudieron guardar los datos");
     }
   };
 
   const persistBonusAnswers = async () => {
-    const payload = {
-      mode: "official" as const,
-      answers: Object.entries(bonusAnswers)
-        .filter(([, answer]) => answer !== "")
-        .map(([questionId, answer]) => ({
-          questionId,
-          answer,
-        })),
-    };
+    const payload = isAdminResults
+      ? {
+          leagueId,
+          answers: Object.entries(bonusAnswers)
+            .filter(([, answer]) => answer !== "")
+            .map(([questionId, answer]) => ({
+              questionId,
+              correctAnswer: answer,
+            })),
+        }
+      : {
+          mode: "official" as const,
+          answers: Object.entries(bonusAnswers)
+            .filter(([, answer]) => answer !== "")
+            .map(([questionId, answer]) => ({
+              questionId,
+              answer,
+            })),
+        };
 
-    const res = await fetch("/api/bonus-answers", {
+    const endpoint = isAdminResults ? "/api/admin/bonus-results" : "/api/bonus-answers";
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

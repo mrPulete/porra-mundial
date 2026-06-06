@@ -55,23 +55,23 @@ enum PenaltyTarget {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  name            String
-  email           String           @unique
-  passwordHash    String
-  role            UserRole         @default(USER)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  predictions     MatchPrediction[]
-  bonusAnswers    BonusAnswer[]
-  rankings        Ranking[]
-  leaguesOwned    League[]
-  leagueMembers   LeagueMember[]
-  leagueDrafts    UserLeagueDraft[]
-  officialSubmissions OfficialSubmission[]
-  accounts        Account[]
-  sessions        Session[]
-  predictionHistory PredictionHistory[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  passwordHash            String
+  role                    UserRole                 @default(USER)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  predictions             MatchPrediction[]
+  bonusAnswers            BonusAnswer[]
+  rankings                Ranking[]
+  leaguesOwned            League[]
+  leagueMembers           LeagueMember[]
+  leagueDrafts            UserLeagueDraft[]
+  officialSubmissions     OfficialSubmission[]
+  accounts                Account[]
+  sessions                Session[]
+  predictionHistory       PredictionHistory[]
 }
 
 model Team {
@@ -180,22 +180,22 @@ model Ranking {
 }
 
 model League {
-  id               String            @id @default(cuid())
-  name             String
-  code             String            @unique
-  ownerId          String
-  createdAt        DateTime          @default(now())
-  owner            User              @relation(fields: [ownerId], references: [id])
-  members          LeagueMember[]
-  rankings         Ranking[]
-  matchPredictions MatchPrediction[]
-  bonusAnswers     BonusAnswer[]
-  scoringRules     ScoringRule[]
-  bonusRules       BonusRule[]
-  penaltyRules     PenaltyRule[]
-  predictionHistory PredictionHistory[]
-  userDrafts       UserLeagueDraft[]
-  officialSubmissions OfficialSubmission[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  code                    String                   @unique
+  ownerId                 String
+  createdAt               DateTime                 @default(now())
+  owner                   User                     @relation(fields: [ownerId], references: [id])
+  members                 LeagueMember[]
+  rankings                Ranking[]
+  matchPredictions        MatchPrediction[]
+  bonusAnswers            BonusAnswer[]
+  scoringRules            ScoringRule[]
+  bonusRules              BonusRule[]
+  penaltyRules            PenaltyRule[]
+  predictionHistory       PredictionHistory[]
+  userDrafts              UserLeagueDraft[]
+  officialSubmissions     OfficialSubmission[]
 }
 
 model UserLeagueDraft {

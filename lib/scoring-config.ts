@@ -46,14 +46,12 @@ const DEFAULT_SCORING_RULES: RuleSeed[] = [
 ];
 
 const DEFAULT_BONUS_RULES: BonusRuleSeed[] = [
-  { code: "CHAMPION", label: "Champion", points: 15, sortOrder: 10 },
-  { code: "RUNNER_UP", label: "Runner-up", points: 8, sortOrder: 20 },
-  { code: "TOP_SCORER", label: "Top scorer", points: 10, sortOrder: 30 },
-  { code: "BEST_PLAYER", label: "Best player", points: 8, sortOrder: 40 },
-  { code: "BEST_GOALKEEPER", label: "Best goalkeeper", points: 6, sortOrder: 50 },
-  { code: "BEST_YOUNG_PLAYER", label: "Best young player", points: 6, sortOrder: 60 },
-  { code: "FAIR_PLAY", label: "Fair Play", points: 5, sortOrder: 70 },
-  { code: "MOST_FUN_TEAM", label: "Most fun team", points: 3, sortOrder: 80 },
+  { code: "TOP_SCORER", label: "Bota de Oro", points: 10, sortOrder: 10 },
+  { code: "BEST_PLAYER", label: "Premio The Best", points: 8, sortOrder: 20 },
+  { code: "BEST_GOALKEEPER", label: "Guante de Oro", points: 6, sortOrder: 30 },
+  { code: "BEST_YOUNG_PLAYER", label: "Mejor Jugador Joven", points: 6, sortOrder: 40 },
+  { code: "FAIR_PLAY", label: "Fair Play FIFA", points: 5, sortOrder: 50 },
+  { code: "BEST_GOAL", label: "Mejor Gol por País", points: 5, sortOrder: 60 },
 ];
 
 const DEFAULT_PENALTIES: PenaltySeed[] = [

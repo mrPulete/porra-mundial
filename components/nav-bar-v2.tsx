@@ -36,12 +36,14 @@ export function NavBarV2() {
 
         {/* Desktop Nav */}
         <nav className="hidden gap-1 text-sm font-semibold md:flex">
-          <Link
-            href="/predictions"
-            className={navLinkClass("/predictions")}
-          >
-            Pronósticos
-          </Link>
+          {!isAdmin && (
+            <Link
+              href="/predictions"
+              className={navLinkClass("/predictions")}
+            >
+              Pronósticos
+            </Link>
+          )}
           <Link
             href="/rankings"
             className={navLinkClass("/rankings")}
@@ -50,10 +52,18 @@ export function NavBarV2() {
           </Link>
           {isAdmin && (
             <Link
+              href="/admin/resultados"
+              className={navLinkClass("/admin/resultados")}
+            >
+              Resultados
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
               href="/admin"
               className={navLinkClass("/admin")}
             >
-              Admin
+              Configuración
             </Link>
           )}
         </nav>
@@ -131,13 +141,15 @@ export function NavBarV2() {
                 <p className="truncate text-xs text-neutral-600 dark:text-neutral-300">{userEmail}</p>
               </div>
             )}
-            <Link
-              href="/predictions"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`block ${navLinkClass("/predictions")} font-semibold`}
-            >
-              Pronósticos
-            </Link>
+            {!isAdmin && (
+              <Link
+                href="/predictions"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block ${navLinkClass("/predictions")} font-semibold`}
+              >
+                Pronósticos
+              </Link>
+            )}
             <Link
               href="/rankings"
               onClick={() => setMobileMenuOpen(false)}
@@ -147,11 +159,20 @@ export function NavBarV2() {
             </Link>
             {isAdmin && (
               <Link
+                href="/admin/resultados"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block ${navLinkClass("/admin/resultados")} font-semibold`}
+              >
+                Resultados
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block ${navLinkClass("/admin")} font-semibold`}
               >
-                Admin
+                Configuración
               </Link>
             )}
             {!data?.user ? (
