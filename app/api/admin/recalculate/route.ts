@@ -34,7 +34,6 @@ export async function POST(request: Request) {
   }
 
   await recalculateFinishedMatchPoints(leagueId);
-  await recalculateGroupRankingPoints(leagueId);
   await recalculateBonusPoints(leagueId);
   await recalculateRankings(leagueId);
 
