@@ -71,14 +71,6 @@ export async function recalculateRankings(leagueId?: string) {
       },
     });
 
-    const groupRankingTotals = await prisma.groupRankingPrediction.groupBy({
-      by: ["userId"],
-      where: { leagueId: league.id },
-      _sum: {
-        pointsAwarded: true,
-      },
-    });
-
     const pointsByUser = new Map<string, number>();
     for (const member of league.members) {
       pointsByUser.set(member.userId, 0);
@@ -92,11 +84,6 @@ export async function recalculateRankings(leagueId?: string) {
     for (const row of bonusTotals) {
       const current = pointsByUser.get(row.userId) ?? 0;
       pointsByUser.set(row.userId, current + safeNumber(row._sum.pointsAwarded) + safeNumber(row._sum.penaltyPoints));
-    }
-
-    for (const row of groupRankingTotals) {
-      const current = pointsByUser.get(row.userId) ?? 0;
-      pointsByUser.set(row.userId, current + safeNumber(row._sum.pointsAwarded));
     }
 
     const sortedLeague = [...pointsByUser.entries()].sort((a, b) => b[1] - a[1]);

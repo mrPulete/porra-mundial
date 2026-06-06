@@ -27,30 +27,33 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Fetch all match results
-    const matches = await prisma.match.findMany({
-      where: { leagueId },
-      select: {
-        id: true,
-        code: true,
-        stage: true,
-        homeScore: true,
-        awayScore: true,
-        qualifiedTeamId: true,
-        isFinished: true,
-      },
-    });
-
-    // Fetch all user predictions
+    // Fetch all user predictions for this league
     const predictions = await prisma.matchPrediction.findMany({
       where: { leagueId },
       select: {
         id: true,
         userId: true,
         matchId: true,
+        predictedHome: true,
+        predictedAway: true,
+        predictedQualifiedTeamId: true,
+      },
+    });
+
+    // Get unique match IDs from predictions
+    const matchIds = [...new Set(predictions.map((p) => p.matchId))];
+
+    // Fetch all relevant match results
+    const matches = await prisma.match.findMany({
+      where: { id: { in: matchIds } },
+      select: {
+        id: true,
+        excelCode: true,
+        stage: true,
         homeScore: true,
         awayScore: true,
-        predictedQualifiedTeamId: true,
+        qualifiedTeamId: true,
+        isFinished: true,
       },
     });
 
@@ -65,24 +68,27 @@ export async function GET(request: Request) {
       },
     });
 
-    // Fetch all group ranking predictions
-    const groupRankings = await prisma.groupRankingPrediction.findMany({
-      where: { leagueId },
-      select: {
-        id: true,
-        userId: true,
-        groupCode: true,
-        ranking: true,
-      },
-    });
-
     const backup = {
       leagueId,
       exportedAt: new Date().toISOString(),
-      matches,
-      predictions,
+      matches: matches.map((m) => ({
+        id: m.id,
+        code: m.excelCode,
+        stage: m.stage,
+        homeScore: m.homeScore,
+        awayScore: m.awayScore,
+        qualifiedTeamId: m.qualifiedTeamId,
+        isFinished: m.isFinished,
+      })),
+      predictions: predictions.map((p) => ({
+        id: p.id,
+        userId: p.userId,
+        matchId: p.matchId,
+        homeScore: p.predictedHome,
+        awayScore: p.predictedAway,
+        predictedQualifiedTeamId: p.predictedQualifiedTeamId,
+      })),
       bonusAnswers,
-      groupRankings,
     };
 
     return NextResponse.json(backup);

@@ -35,14 +35,6 @@ const backupSchema = z.object({
       answer: z.string(),
     })
   ),
-  groupRankings: z.array(
-    z.object({
-      id: z.string(),
-      userId: z.string(),
-      groupCode: z.string(),
-      ranking: z.any(),
-    })
-  ),
 });
 
 export async function POST(request: Request) {
@@ -59,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Formato de backup inválido" }, { status: 400 });
   }
 
-  const { leagueId, matches, predictions, bonusAnswers, groupRankings } = parsed.data;
+  const { leagueId, matches, predictions, bonusAnswers } = parsed.data;
 
   // Verify user is league owner
   const league = await prisma.league.findUnique({
@@ -82,7 +74,6 @@ export async function POST(request: Request) {
             awayScore: match.awayScore,
             qualifiedTeamId: match.qualifiedTeamId,
             isFinished: true,
-            finishedAt: new Date(),
           },
         });
       }
@@ -93,8 +84,8 @@ export async function POST(request: Request) {
       await prisma.matchPrediction.upsert({
         where: { id: pred.id },
         update: {
-          homeScore: pred.homeScore,
-          awayScore: pred.awayScore,
+          predictedHome: pred.homeScore,
+          predictedAway: pred.awayScore,
           predictedQualifiedTeamId: pred.predictedQualifiedTeamId,
         },
         create: {
@@ -102,8 +93,8 @@ export async function POST(request: Request) {
           userId: pred.userId,
           matchId: pred.matchId,
           leagueId,
-          homeScore: pred.homeScore,
-          awayScore: pred.awayScore,
+          predictedHome: pred.homeScore,
+          predictedAway: pred.awayScore,
           predictedQualifiedTeamId: pred.predictedQualifiedTeamId,
         },
       });
@@ -124,26 +115,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Restore group rankings
-    for (const ranking of groupRankings) {
-      await prisma.groupRankingPrediction.upsert({
-        where: {
-          userId_leagueId_groupCode: {
-            userId: ranking.userId,
-            leagueId,
-            groupCode: ranking.groupCode,
-          },
-        },
-        update: { ranking: ranking.ranking },
-        create: {
-          userId: ranking.userId,
-          leagueId,
-          groupCode: ranking.groupCode,
-          ranking: ranking.ranking,
-        },
-      });
-    }
-
     // Recalculate rankings
     await fetch(
       `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/admin/recalculate`,
@@ -160,7 +131,6 @@ export async function POST(request: Request) {
         matches: matches.length,
         predictions: predictions.length,
         bonusAnswers: bonusAnswers.length,
-        groupRankings: groupRankings.length,
       },
     });
   } catch (error) {
