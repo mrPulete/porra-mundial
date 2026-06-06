@@ -35,7 +35,7 @@ export default async function RankingsPage() {
 
   const activeLeagueId = leagueContext.activeLeagueId;
 
-  const [rankings, averageAccuracy, finishedPredictions] = await Promise.all([
+  const [rankings, averageAccuracy, finishedPredictions, totalMatches, allPredictions, pointsByRound, bonusPoints] = await Promise.all([
     prisma.ranking.findMany({
       where: {
         leagueId: activeLeagueId,
@@ -82,6 +82,43 @@ export default async function RankingsPage() {
         },
       },
     }),
+    prisma.match.count(),
+    prisma.matchPrediction.findMany({
+      where: {
+        leagueId: activeLeagueId,
+      },
+      select: {
+        userId: true,
+        match: {
+          select: {
+            stage: true,
+          },
+        },
+      },
+    }),
+    prisma.matchPrediction.findMany({
+      where: {
+        leagueId: activeLeagueId,
+      },
+      select: {
+        userId: true,
+        pointsAwarded: true,
+        match: {
+          select: {
+            stage: true,
+          },
+        },
+      },
+    }),
+    prisma.bonusAnswer.findMany({
+      where: {
+        leagueId: activeLeagueId,
+      },
+      select: {
+        userId: true,
+        pointsAwarded: true,
+      },
+    }),
   ]);
 
   const exactHitsByUser = new Map<string, number>();
@@ -99,13 +136,47 @@ export default async function RankingsPage() {
 
   const accuracyByUser = new Map(averageAccuracy.map((row) => [row.userId, row._avg.accuracy ?? 0]));
 
-  const rankingData = rankings.map((row, index) => ({
-    position: row.rankPosition || index + 1,
-    name: row.user.name || row.user.email || "Usuario",
-    points: row.totalPoints,
-    exactHits: exactHitsByUser.get(row.userId) ?? 0,
-    accuracy: accuracyByUser.get(row.userId) ?? 0,
-  }));
+  const predictionsByUserAndStage = new Map<string, Map<string, number>>();
+  for (const pred of allPredictions) {
+    if (!predictionsByUserAndStage.has(pred.userId)) {
+      predictionsByUserAndStage.set(pred.userId, new Map());
+    }
+    const userStages = predictionsByUserAndStage.get(pred.userId)!;
+    userStages.set(pred.match.stage, (userStages.get(pred.match.stage) ?? 0) + 1);
+  }
+
+  const pointsByUserAndStage = new Map<string, Map<string, number>>();
+  for (const pred of pointsByRound) {
+    if (!pointsByUserAndStage.has(pred.userId)) {
+      pointsByUserAndStage.set(pred.userId, new Map());
+    }
+    const userStages = pointsByUserAndStage.get(pred.userId)!;
+    userStages.set(
+      pred.match.stage,
+      (userStages.get(pred.match.stage) ?? 0) + (pred.pointsAwarded ?? 0),
+    );
+  }
+
+  const bonusPointsByUser = new Map<string, number>();
+  for (const bonus of bonusPoints) {
+    bonusPointsByUser.set(bonus.userId, (bonusPointsByUser.get(bonus.userId) ?? 0) + (bonus.pointsAwarded ?? 0));
+  }
+
+  const rankingData = rankings.map((row, index) => {
+    const userPredictions = allPredictions.filter((p) => p.userId === row.userId).length;
+    const completionPercentage = totalMatches > 0 ? Math.round((userPredictions / totalMatches) * 100) : 0;
+
+    return {
+      position: row.rankPosition || index + 1,
+      name: row.user.name || row.user.email || "Usuario",
+      points: row.totalPoints,
+      exactHits: exactHitsByUser.get(row.userId) ?? 0,
+      accuracy: accuracyByUser.get(row.userId) ?? 0,
+      completionPercentage,
+      pointsByStage: pointsByUserAndStage.get(row.userId) ?? new Map(),
+      bonusPoints: bonusPointsByUser.get(row.userId) ?? 0,
+    };
+  });
 
   return (
     <main className="mx-auto w-full max-w-6xl gap-4 px-4 py-8">

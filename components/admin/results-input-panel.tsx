@@ -46,6 +46,7 @@ export function ResultsInputPanel({
   const [modalMatch, setModalMatch] = useState<AdminMatch | null>(null);
   const [modalScore, setModalScore] = useState({ home: "", away: "" });
   const [modalQualifiedTeamId, setModalQualifiedTeamId] = useState("");
+  const [isPreselectedScore, setIsPreselectedScore] = useState(false);
   const [localResults, setLocalResults] = useState<Record<string, { home: string; away: string }>>(() => {
     const init: Record<string, { home: string; away: string }> = {};
     for (const match of matches) {
@@ -159,7 +160,14 @@ export function ResultsInputPanel({
       [modalMatch.id]: needsQualifier ? modalQualifiedTeamId : "",
     }));
 
-    setModalMatch(null);
+    // Cerrar automáticamente si es resultado preelegido y NO es empate en KO
+    if (isPreselectedScore && !needsQualifier) {
+      setModalMatch(null);
+      setIsPreselectedScore(false);
+    } else {
+      // Mantener el modal abierto si es empate o si fue escogido manualmente
+      setIsPreselectedScore(false);
+    }
   };
 
   const clearResultFromModal = () => {
@@ -449,7 +457,23 @@ export function ResultsInputPanel({
               ].map((score) => (
                 <button
                   key={`${score.home}-${score.away}`}
-                  onClick={() => setModalScore(score)}
+                  onClick={() => {
+                    setModalScore(score);
+                    setIsPreselectedScore(true);
+                    const isDraw = score.home === score.away;
+                    const needsQualifier = isKnockoutStage(modalMatch.stage) && isDraw;
+
+                    if (!needsQualifier) {
+                      setLocalResults((prev) => ({
+                        ...prev,
+                        [modalMatch.id]: {
+                          home: score.home,
+                          away: score.away,
+                        },
+                      }));
+                      setModalMatch(null);
+                    }
+                  }}
                   className="rounded border border-black/10 px-2 py-1 text-xs font-bold hover:bg-neutral-100 dark:border-white/10 dark:hover:bg-neutral-800"
                 >
                   {score.home}-{score.away}
@@ -465,24 +489,36 @@ export function ResultsInputPanel({
                 Borrar resultado
               </button>
               <button
-                onClick={() => setModalMatch(null)}
+                onClick={() => {
+                  setModalMatch(null);
+                  setIsPreselectedScore(false);
+                }}
                 className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-bold dark:border-white/10"
               >
                 Cancelar
               </button>
-              <button
-                onClick={applyResultFromModal}
-                disabled={
-                  modalScore.home === "" ||
-                  modalScore.away === "" ||
-                  (isKnockoutStage(modalMatch.stage) &&
-                    modalScore.home === modalScore.away &&
-                    !modalQualifiedTeamId)
-                }
-                className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
-              >
-                Guardar
-              </button>
+              {(() => {
+                const isDraw = modalScore.home !== "" && modalScore.away !== "" && modalScore.home === modalScore.away;
+                const needsQualifier = isKnockoutStage(modalMatch.stage) && isDraw;
+                // Mostrar "Guardar" si: es empate en KO (necesita elegir ganador) o si cambió manualmente los combos
+                const shouldShowSave = needsQualifier || (!isPreselectedScore && modalScore.home !== "" && modalScore.away !== "");
+
+                return shouldShowSave ? (
+                  <button
+                    onClick={applyResultFromModal}
+                    disabled={
+                      modalScore.home === "" ||
+                      modalScore.away === "" ||
+                      (isKnockoutStage(modalMatch.stage) &&
+                        modalScore.home === modalScore.away &&
+                        !modalQualifiedTeamId)
+                    }
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {needsQualifier ? "Seleccionar ganador" : "Guardar"}
+                  </button>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import type { ScoringSettings } from "@/lib/scoring-settings";
 import type { PredictionEditPolicy } from "@/lib/prediction-edit-policy";
 import TeamLink from "./team/team-link";
 import { BracketBoard } from "@/components/bracket-board";
+import { PlayerAutocomplete } from "@/components/player-autocomplete";
 
 const DEFAULT_SCORING: ScoringSettings = {
   homeGoalsHit: 1,
@@ -1254,24 +1255,20 @@ export function UnifiedPredictionsBoard({
                     <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">
                       Cierre: {deadline.toLocaleDateString("es-ES")} {deadline.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                     </p>
-                    <select
-                      className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
-                      value={bonusAnswers[question.id] ?? ""}
-                      disabled={readOnly}
-                      onChange={(e) =>
-                        setBonusAnswers((prev) => ({
-                          ...prev,
-                          [question.id]: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Seleccionar...</option>
-                      {options.map((option) => (
-                        <option key={`${question.id}-${option.value}`} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-2">
+                      <PlayerAutocomplete
+                        options={options}
+                        value={bonusAnswers[question.id] ?? ""}
+                        onChange={(val) =>
+                          setBonusAnswers((prev) => ({
+                            ...prev,
+                            [question.id]: val,
+                          }))
+                        }
+                        disabled={readOnly}
+                        placeholder="Buscar jugador o equipo..."
+                      />
+                    </div>
                   </div>
                 );
               })

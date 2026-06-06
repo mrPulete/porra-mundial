@@ -5,7 +5,7 @@ import { AppSessionProvider } from "@/components/session-provider";
 import { auth } from "@/lib/auth";
 import "./globals.css";
 
-const APP_VERSION = "0.3.1";
+const APP_VERSION = "0.5.0";
 
 const headingFont = Barlow_Condensed({
   weight: ["600", "700", "800"],

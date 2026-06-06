@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import {
+  buildGoalkeeperOptions,
+  buildOutfieldPlayerOptions,
+} from "@/data/world-cup-players";
 
 type QuestionOption = {
   value: string;
@@ -36,18 +40,6 @@ const PLAYER_SHORTLIST: QuestionOption[] = [
 ];
 
 const FIFA_BONUS_QUESTIONS: BonusQuestionSeed[] = [
-  {
-    code: "CHAMPION",
-    question: "Que seleccion sera campeona del Mundial 2026?",
-    points: 15,
-    optionsSource: "teams",
-  },
-  {
-    code: "RUNNER_UP",
-    question: "Que seleccion sera subcampeona del Mundial 2026?",
-    points: 8,
-    optionsSource: "teams",
-  },
   {
     code: "TOP_SCORER",
     question: "Quien ganara la Bota de Oro (maximo goleador)?",
@@ -151,13 +143,23 @@ export async function ensureDefaultFifaBonusQuestions() {
   const deadline = computeDefaultDeadline(firstMatch?.kickoffAt ?? null);
 
   for (const question of missing) {
+    let options: QuestionOption[];
+
+    if (question.optionsSource === "teams") {
+      options = teamOptions;
+    } else if (question.code === "BEST_GOALKEEPER") {
+      options = buildGoalkeeperOptions();
+    } else {
+      options = buildOutfieldPlayerOptions();
+    }
+
     await prisma.bonusQuestion.create({
       data: {
         code: question.code,
         question: question.question,
         points: question.points,
         deadline,
-        options: question.optionsSource === "teams" ? teamOptions : PLAYER_SHORTLIST,
+        options,
       },
     });
   }
