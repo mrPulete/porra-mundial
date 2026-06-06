@@ -993,9 +993,9 @@ export function UnifiedPredictionsBoard({
                   : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
               }`}
             >
-              {pendingEditableResults === 0
-                ? `✅ Todos enviados (${sentEditableResults}/${totalEditableResults})`
-                : `⏳ Pendientes por enviar: ${pendingEditableResults}/${totalEditableResults}`}
+              {pendingEditableResults === 0 && pendingQuestionCount === 0
+                ? `✅ Todos enviados (${sentEditableResults}/${totalEditableResults} + ${bonusQuestions.length})`
+                : `⏳ Pendientes: ${pendingEditableResults} partidos${pendingQuestionCount > 0 ? ` + ${pendingQuestionCount} preguntas` : ""} (${totalEditableResults - pendingEditableResults + bonusQuestions.length - pendingQuestionCount}/${totalEditableResults + bonusQuestions.length})`}
             </span>
           )}
           {hasPendingOfficialChanges && !isLocked && (
