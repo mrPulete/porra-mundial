@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { seedBaseWorldCupData } from "@/lib/testing/seed-data";
 
 async function main() {
-  const result = await seedBaseWorldCupData({ resetDatabase: true });
+  // resetDatabase=false preserva usuarios y ligas existentes
+  const result = await seedBaseWorldCupData({ resetDatabase: false });
 
   console.log("Seed completado");
   console.log(`Admin: ${result.adminEmail}`);
